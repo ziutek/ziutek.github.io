@@ -4,7 +4,9 @@ title: Go on very small hardware
 permalink: /drafts/1
 ---
 
-How low we can Go and still do something useful? I recently bought this board:
+How low we can *Go* and still do something useful?
+
+I recently bought this ridiculously cheap board:
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/board.jpg)
 
@@ -23,13 +25,13 @@ all enclosed in TSSOP20 package. As you can see, it is very small 32-bit system.
 
 ## The software
 
-If you hoped to read how to use [genuine Go](https://golang.org/) to program this board, you need to read the hardware specification one more time. You must face the truth: there is a negligible chance that someone will ever port real Go to Cortex-M0 (ARMv6-M) architecture and this is just the beginning of work.
+If you hoped to read how to use [genuine Go](https://golang.org/) to program this board, you need to read the hardware specification one more time. You must face the truth: there is a negligible chance that someone will ever add support for Cortex-M0 (ARMv6-M) to the Go compiler and this is just the beginning of work.
 
-We will use [Emgo](https://github.com/ziutek/emgo), but don't worry, you will see that it gives you as much Go as it can on such small system.
+We'll use [Emgo](https://github.com/ziutek/emgo), but don't worry, you will see that it gives you as much Go as it can on such small system.
 
 There was no support for any F0 MCU in [stm32/hal](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/hal) before this board arrived to me. After brief study of [RM](http://www.st.com/resource/en/reference_manual/dm00091010.pdf), the STM32F0 series appeared to be striped down STM32F3 series, which made work on new port easier.
 
-If you want to follow subsequent steps, you need to install Emgo:
+If you want to follow subsequent steps, you need to install Emgo
 
 ```
 cd $HOME
@@ -38,7 +40,7 @@ cd emgo/egc
 go install
 ```
 
-and set couple environment variables:
+and set a couple environment variables
 
 ```
 export EGCC=path_to_arm_gcc      # eg. /usr/local/arm/bin/arm-none-eabi-gcc
@@ -84,7 +86,7 @@ $ arm-none-eabi-size cortexm0.elf
    7452     172     104    7728    1e30 cortexm0.elf
 ```
 
-It takes 7728 bytes of Flash but does nothing. There are 8656 free bytes left for something useful.
+It takes 7728 bytes of Flash, quite a lot for a program that does nothing. There are 8656 free bytes left to do something useful.
 
 What about traditional *Hello, World!* code:
 
@@ -107,13 +109,13 @@ $ egc
 exit status 1
 ```
 
-*Hello, World!* requires at last STM32F030x6, which have 32 KB of Flash.
+*Hello, World!* requires at last STM32F030x6, with its 32 KB of Flash.
 
-Fmt is very heavy package, even a slimmed-down version in Emgo. We must forget about it. There are many applications that do not require any text output. Often one or more LEDs are enough.
+Fmt is very heavy package, even a slimmed-down version in Emgo. We must forget about it. There are many applications that don't  require fancy formatted text output. Often one or more LEDs are enough. However, at the end of this post, I'll try to use strconv package to print something over UART. 
 
 ## Blinky
 
-Our board has one LED, connected with series resistor between PA4 pin and VCC. This time we need a bit more code:
+Our board has one LED connected between PA4 pin and VCC. This time we need a bit more code:
 
 ```go
 package main
@@ -149,13 +151,13 @@ func main() {
 }
 ```
 
-By convention, the init function is used to initialise whole system.
+By convention, the init function is used to initialize the runtime and peripherals.
 
 `system.SetupPLL(8, 1, 48/8)` configures RCC to use PLL with external 8 MHz oscilator as system clock source. PLL divider is set to 1, multipler to 48/8 = 6 which gives 48 MHz system clock.
 
-`systick.Setup(2e6)` setups Cortex-M SYSTICK timer as system timer, which runs scheduler every 2 milliseconds.
+`systick.Setup(2e6)` setups Cortex-M SYSTICK timer as system timer, which runs scheduler every 2e6 nanoseconds (500 times per second).
 
-`gpio.A.EnableClock(false)` enables clock for GPIO port A. False means that this clock should be disabled in low-power mode, but this is not implemented int STM32F0 series.
+`gpio.A.EnableClock(false)` enables clock for GPIO port A. `false` means that this clock should be disabled in low-power mode, but this is not implemented int STM32F0 series.
 
 `led.Setup(cfg)` setups PA4 pin as open-drain output.
 
@@ -172,9 +174,9 @@ $ arm-none-eabi-size cortexm0.elf
    9772     172     168   10112    2780 cortexm0.elf
 ```
 
-As you can see, blinky takse 2384 bytes more than minimal program. There are still 6272 bytes left for more code.
+As you can see, blinky takes 2384 bytes more than minimal program. There are still 6272 bytes left for more code.
 
-Lets see how it works:
+Let's see if it works:
 
 ```
 $ openocd -d0 -f interface/stlink.cfg -f target/stm32f0x.cfg -c 'init; reset init; program cortexm0.elf; reset run; exit'
