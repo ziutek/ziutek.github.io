@@ -25,13 +25,13 @@ all enclosed in TSSOP20 package. As you can see, it is very small 32-bit system.
 
 ## The software
 
-If you hoped to read how to use [genuine Go](https://golang.org/) to program this board, you need to read the hardware specification one more time. You must face the truth: there is a negligible chance that someone will ever add support for Cortex-M0 (ARMv6-M) to the Go compiler and this is just the beginning of work.
+If you hoped to see how to use [genuine Go](https://golang.org/) to program this board, you need to read the hardware specification one more time. You must face the truth: there is a negligible chance that someone will ever add support for Cortex-M0 to the Go compiler and this is just the beginning of work.
 
 We'll use [Emgo](https://github.com/ziutek/emgo), but don't worry, you will see that it gives you as much Go as it can on such small system.
 
 There was no support for any F0 MCU in [stm32/hal](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/hal) before this board arrived to me. After brief study of [RM](http://www.st.com/resource/en/reference_manual/dm00091010.pdf), the STM32F0 series appeared to be striped down STM32F3 series, which made work on new port easier.
 
-If you want to follow subsequent steps, you need to install Emgo
+If you want to follow subsequent steps of this post, you need to install Emgo
 
 ```
 cd $HOME
@@ -57,7 +57,7 @@ export EGTARGET=f030x6
 
 A more detailed description can be found on the [Emgo website](https://github.com/ziutek/emgo).
 
-Ensure that egc is on your PATH. You can use `go build` instead of `go install` and copy egc to your $HOME/bin or /usr/local/bin.
+Ensure that egc is on your PATH. You can use `go build` instead of `go install` and copy egc to your *$HOME/bin* or */usr/local/bin*.
 
 Now create new directory for your first Emgo program and copy example linker script there:
 ```
@@ -68,7 +68,7 @@ cp $EGPATH/src/stm32/examples/f030-demo-board/blinky/script.ld .
 
 ## Minimal program
 
-Lets create minimal program in main.go file:
+Lets create minimal program in *main.go* file:
 
 ```go
 package main
@@ -86,7 +86,7 @@ $ arm-none-eabi-size cortexm0.elf
    7452     172     104    7728    1e30 cortexm0.elf
 ```
 
-It takes 7728 bytes of Flash, quite a lot for a program that does nothing. There are 8656 free bytes left to do something useful.
+It takes 7624 bytes of Flash (text+data), quite a lot for a program that does nothing. There are 8760 free bytes left to do something useful.
 
 What about traditional *Hello, World!* code:
 
@@ -161,9 +161,9 @@ By convention, the init function is used to initialize the runtime and periphera
 
 `led.Setup(cfg)` setups PA4 pin as open-drain output.
 
-`led.Clear()` sets PA4 pin low, which in open-drain configuration turns on the LED.
+`led.Clear()` sets PA4 pin low, which in open-drain configuration turns the LED on.
 
-`led.Set()` sets PA4 to high-impedance state, which turns off the LED.
+`led.Set()` sets PA4 to high-impedance state, which turns the LED off.
 
 Lets compile this code:
 
@@ -174,12 +174,12 @@ $ arm-none-eabi-size cortexm0.elf
    9772     172     168   10112    2780 cortexm0.elf
 ```
 
-As you can see, blinky takes 2384 bytes more than minimal program. There are still 6272 bytes left for more code.
+As you can see, blinky takes 2320 bytes more than minimal program. There are still 6440 bytes left for more code.
 
 Let's see if it works:
 
 ```
-$ openocd -d0 -f interface/stlink.cfg -f target/stm32f0x.cfg -c 'init; reset init; program cortexm0.elf; reset run; exit'
+$ openocd -d0 -f interface/stlink.cfg -f target/stm32f0x.cfg -c 'init; program cortexm0.elf; reset run; exit'
 Open On-Chip Debugger 0.10.0+dev-00319-g8f1f912a (2018-03-07-19:20)
 Licensed under GNU GPL v2
 For bug reports, read
@@ -190,17 +190,13 @@ adapter_nsrst_delay: 100
 none separate
 adapter speed: 950 kHz
 target halted due to debug-request, current mode: Thread 
-xPSR: 0xc1000000 pc: 0x08000ef8 msp: 0x20000a20
-adapter speed: 4000 kHz
-adapter speed: 950 kHz
-target halted due to debug-request, current mode: Thread 
-xPSR: 0xc1000000 pc: 0x08000ef8 msp: 0x20000a20
+xPSR: 0xc1000000 pc: 0x0800119c msp: 0x20000da0
 adapter speed: 4000 kHz
 ** Programming Started **
 auto erase enabled
 target halted due to breakpoint, current mode: Thread 
-xPSR: 0x61000000 pc: 0x2000003a msp: 0x20000a20
-wrote 10240 bytes from file cortexm0.elf in 0.822888s (12.152 KiB/s)
+xPSR: 0x61000000 pc: 0x2000003a msp: 0x20000da0
+wrote 10240 bytes from file cortexm0.elf in 0.817425s (12.234 KiB/s)
 ** Programming Finished **
 adapter speed: 950 kHz
 ```
@@ -209,3 +205,75 @@ For this article, first time in my life, I converted short video to [animated PN
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/blinky.png)
 
+## More Go
+
+If you aren't a Go programmer but you've heard something about Go language, you can say: "This syntax is nice, but not a significant improvement over C. Show me *Go language*, give mi *channels* and *gorutines!*".
+
+```go
+import (
+	"delay"
+
+	"stm32/hal/gpio"
+	"stm32/hal/system"
+	"stm32/hal/system/timer/systick"
+)
+
+var led1, led2 gpio.Pin
+
+func init() {
+	system.SetupPLL(8, 1, 48/8)
+	systick.Setup(2e6)
+
+	gpio.A.EnableClock(false)
+	led1 = gpio.A.Pin(4)
+	led2 = gpio.A.Pin(5)
+
+	cfg := &gpio.Config{Mode: gpio.Out, Driver: gpio.OpenDrain}
+	led1.Setup(cfg)
+	led2.Setup(cfg)
+}
+
+func blinky(led gpio.Pin, period int) {
+	for {
+		led.Clear()
+		delay.Millisec(100)
+		led.Set()
+		delay.Millisec(period - 100)
+	}
+}
+
+func main() {
+	go blinky(led1, 500)
+	blinky(led2, 1000)
+}
+```
+
+Code changes are minor: the second LED was added and the previous `main` was renamed to `blinky` and now requires two parameters. Main starts first blinky in new gorutine, so both LEDs are handled *concurrently*. It is worth mentioning that `gpio.Pin` type supports concurrent access to different pins of the same GPIO port.
+
+Emgo still has several shortcomings. One of them is that you have to specify a maximum number of gorutines (tasks) in advance. It's time to edit *script.ld*:
+
+```
+ISRStack = 1024;
+MainStack = 1024;
+TaskStack = 1024;
+MaxTasks = 2;
+
+INCLUDE stm32/f030x4
+INCLUDE stm32/loadflash
+INCLUDE noos-cortexm
+```
+
+The size of the stacks are set by guess, and we'll not care about them at the moment.
+
+```
+$ egc
+$ arm-none-eabi-size cortexm0.elf
+   text    data     bss     dec     hex filename
+  10020     172     172   10364    287c cortexm0.elf
+```
+
+Another LED and one gorutine costs 248 bytes of Flash.
+
+![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/gorutines.png)
+
+## Channels
