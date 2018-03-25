@@ -204,3 +204,8 @@ wrote 10240 bytes from file cortexm0.elf in 0.822888s (12.152 KiB/s)
 ** Programming Finished **
 adapter speed: 950 kHz
 ```
+
+For this article, first time in my life, I converted short video to [animated PNG](https://en.wikipedia.org/wiki/APNG) sequence. I'm impressed, goodbye YouTube and sorry IE users. See [apngasm](http://apngasm.sourceforge.net/) for more info.
+
+![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/blinky.png)
+
