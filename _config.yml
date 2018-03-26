@@ -18,9 +18,10 @@ title: Michał Derkacz
 author: ->
 description: Mainly about bare-metal programming with Go.
 email:
-header_pages: about.md
-show_excerpts: yes
+show_excerpts: true
 excerpt_separator: <!--more-->
+header_pages:
+  - about.md
 
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "https://ziutek.github.io/" # the base hostname & protocol for your site, e.g. http://example.com
