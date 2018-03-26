@@ -279,4 +279,5 @@ Another LED and one gorutine costs 248 bytes of Flash.
 
 ## Channels
 
-Channels are [preffered way](https://blog.golang.org/share-memory-by-communicating) in Go to communicate between gorutines.
+Channels are [preffered way](https://blog.golang.org/share-memory-by-communicating) in Go to communicate between gorutines. Emgo goes even further and allows
+to use *buffered* channels by *interrupt handlers*.
