@@ -27,7 +27,7 @@ all enclosed in TSSOP20 package. As you can see, it is very small 32-bit system.
 
 If you hoped to see how to use [genuine Go](https://golang.org/) to program this board, you need to read the hardware specification one more time. You must face the truth: there is a negligible chance that someone will ever add support for Cortex-M0 to the Go compiler and this is just the beginning of work.
 
-We'll use [Emgo](https://github.com/ziutek/emgo), but don't worry, you will see that it gives you as much Go as it can on such small system.
+I'll use [Emgo](https://github.com/ziutek/emgo), but don't worry, you will see that it gives you as much Go as it can on such small system.
 
 There was no support for any F0 MCU in [stm32/hal](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/hal) before this board arrived to me. After brief study of [RM](http://www.st.com/resource/en/reference_manual/dm00091010.pdf), the STM32F0 series appeared to be striped down STM32F3 series, which made work on new port easier.
 
@@ -86,7 +86,7 @@ $ arm-none-eabi-size cortexm0.elf
    7452     172     104    7728    1e30 cortexm0.elf
 ```
 
-It takes 7624 bytes of Flash (text+data), quite a lot for a program that does nothing. There are 8760 free bytes left to do something useful.
+The first compilation can take some time. The resulting binary takes 7624 bytes of Flash (text+data), quite a lot for a program that does nothing. There are 8760 free bytes left to do something useful.
 
 What about traditional *Hello, World!* code:
 
@@ -111,7 +111,7 @@ exit status 1
 
 *Hello, World!* requires at last STM32F030x6, with its 32 KB of Flash.
 
-Fmt is very heavy package, even a slimmed-down version in Emgo. We must forget about it. There are many applications that don't  require fancy formatted text output. Often one or more LEDs are enough. However, at the end of this post, I'll try to use strconv package to print something over UART. 
+Fmt is a pretty big package, even a slimmed-down version in Emgo. We must forget about it. There are many applications that don't require fancy formatted text output. Often one or more LEDs are enough. However, at the end of this post, I'll try to use strconv package to print something over UART. 
 
 ## Blinky
 
@@ -277,3 +277,5 @@ Another LED and one gorutine costs 248 bytes of Flash.
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/gorutines.png)
 
 ## Channels
+
+Channels are [preffered way](https://blog.golang.org/share-memory-by-communicating) in Go to communicate between gorutines.
