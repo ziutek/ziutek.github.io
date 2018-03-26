@@ -23,10 +23,12 @@ show_excerpts: yes
 excerpt_separator: <!--more-->
 
 baseurl: "" # the subpath of your site, e.g. /blog
-url: "" # the base hostname & protocol for your site, e.g. http://example.com
+url: "https://ziutek.github.io/" # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username:
 github_username: ziutek
 youtube_username: channel/UCAW4PLMDGO7_vY4sCG0jg6Q
+disqus:
+    shortname: ziutek
 
 # Build settings
 markdown: kramdown
