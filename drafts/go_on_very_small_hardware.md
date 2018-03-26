@@ -2,6 +2,7 @@
 layout: post
 title: Go on very small hardware
 permalink: /drafts/1
+tags: mcu go emgo
 ---
 
 How low we can *Go* and still do something useful?

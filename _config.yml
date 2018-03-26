@@ -19,6 +19,8 @@ author: ->
 description: Mainly about bare-metal programming with Go.
 email:
 header_pages: about.md
+show_excerpts: yes
+excerpt_separator: <!--more-->
 
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
