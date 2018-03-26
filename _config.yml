@@ -15,6 +15,7 @@
 # in the templates via {{ site.myvariable }}.
 
 title: Michał Derkacz
+author: ->
 description: Mainly about bare-metal programming with Go.
 email:
 header_pages: about.md
@@ -23,6 +24,7 @@ baseurl: "" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username:
 github_username: ziutek
+youtube_username: channel/UCAW4PLMDGO7_vY4sCG0jg6Q
 
 # Build settings
 markdown: kramdown
