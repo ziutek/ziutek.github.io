@@ -11,7 +11,9 @@ I recently bought this ridiculously cheap board:
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/board.jpg)
 
-and now I can share my experiences.
+I bought it for three reasons. First, I have never dealt (as a programmer) with STM32F0 series. Second, the STM32F10x series is getting old. MCUs belonging to the STM32F0 family are just as cheap if not cheaper and has newer peripherals, with many improvements and bugs fixed. Thirdly, I chose the smallest member of the family for the purpose of this article, to make the whole thing a little more intriguing.
+
+<!--more-->
 
 ## The Hardware
 
@@ -324,8 +326,8 @@ func init() {
 	}
 	freq := uint(1e3) // Hz
 	timer.EnableClock(true)
-	timer.PSC.Store(tim.PSC(pclk/freq - 1))
-	timer.ARR.Store(500) // ms
+	timer.PSC.Store(tim.PSC(pclk / freq))
+	timer.ARR.Store(700) // ms
 	timer.DIER.Store(tim.UIE)
 	timer.CR1.Store(tim.CEN)
 
@@ -335,15 +337,15 @@ func init() {
 func blinky(led gpio.Pin, period int) {
 	for range ch {
 		led.Clear()
-		delay.Millisec(50)
+		delay.Millisec(100)
 		led.Set()
-		delay.Millisec(period - 50)
+		delay.Millisec(period - 100)
 	}
 }
 
 func main() {
-	go blinky(leds[1], 200)
-	blinky(leds[2], 200)
+	go blinky(leds[1], 500)
+	blinky(leds[2], 500)
 }
 
 func timerISR() {
@@ -371,10 +373,78 @@ Changes compared to the previous example:
 
 3. The new `timerISR` function handles `irq.TIM3` interrupt.
 
-4. All interrupts are set in ISRs table.
+4. The new buffered channel with capacity 1 is intended for communication between timerISR and blinky gorutines. 
 
-For convenience, all all LEDs, or rather their pins, have been collected in the array. Additionally, all pins have been set to a known initial state (high), just before they were configured as outputs.
+5. The ISRs array acts as *interrupt vector table*.
 
-In this case, we want the timer to tick at 1 kHz. To configure prescaler, we need to known its input clock frequency. According to RM the input clock is equal to APBCLK in case APBCLK = AHBCLK or 2 x APBCLK otherwise.
+6. The blinky's *for statement* was replaced with a *range statement*.
 
-Our timer ticks at 1 kHz, so the value of ARR register corresponds to the period of update (counter reload) event, expressed in milliseconds. To make update event to generate interrupts the UIE bit in DIER register must be set. The CEN bit enables timer.
+For convenience, all LEDs, or rather their pins, have been collected in the array. Additionally, all pins have been set to a known initial state (high), just before they were configured as outputs.
+
+In this case, we want the timer to tick at 1 kHz. To configure prescaler, we need to known its input clock frequency. According to RM the input clock frequency is equal to APBCLK when APBCLK = AHBCLK, otherwise it is equal to 2 x APBCLK.
+
+If the CNT register is incremented at 1 KHz, then the value of ARR register corresponds to the period of counter reload event (update event, UE) expressed in milliseconds. To make update event to generate interrupts, the UIE bit in DIER register must be set. The CEN bit enables the timer.
+
+The `timerISR` function handles `irq.TIM3` interrupt. `timer.SR.Store(0)` clears all event flags in SR register to deassert the interrupt to NVIC. The rule of thumb is to clear the interrupt flags immedaitely at begining of their handler, because of the IRQ deassert latency. This prevents unjustified re-call the handler again.
+
+The following code:
+
+```go
+select {
+case ch <- struct{}{}:
+	// Success
+default:
+	leds[0].Clear()
+}
+```
+
+is a Go way to non-blocking sending on a channel. No one interrupt handler can afford to wait for a free space in the channel. If the channel is full, the default case is taken, and the onboard LED is set on, until the next interrupt.
+
+The `ISRs` array contains interrupt vectors. The `//c:__attribute__((section(".ISRs")))` causes that the linker will inserted it into .ISRs section.
+
+The new form of blinky's *for* loop:
+
+```go
+for range ch {
+	led.Clear()
+	delay.Millisec(100)
+	led.Set()
+	delay.Millisec(period - 100)
+}
+```
+
+is the equivalent of:
+
+```go
+for {
+	_, ok := <-ch
+	if !ok {
+		break // Channel closed.
+	}
+	led.Clear()
+	delay.Millisec(100)
+	led.Set()
+	delay.Millisec(period - 100)
+}
+```
+
+Note that in this case we aren't interested in the value received from the channel. We're interested only in the fact that there is something to receive. We give it expression by declaring the channel's element type as empty struct.
+
+Lets compile this code:
+
+```
+$ egc
+$ arm-none-eabi-size cortexm0.elf
+   text    data     bss     dec     hex filename
+  11084     228     188   11500    2cec cortexm0.elf
+```
+
+This new example takes 11312 bytes of Flash, 1120 bytes more than the previous one.
+
+With current timings, both blinky gorutines consume much faster from the channel than the timerISR sends to it. So they both wait for new data simultaneously and you can observe the randomness of select, required by the [Go specification](https://golang.org/ref/spec#Select_statements).
+
+![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/channels1.png)
+
+Onboard LED is always off, so the channel overrun never occurs.
+
+Na tym kończę część pierwszą tego artykułu. Wyszedł bardzo długi, a i tak zawiera tylko połowę tego.
