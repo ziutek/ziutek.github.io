@@ -154,13 +154,13 @@ func main() {
 }
 ```
 
-By convention, the init function is used to initialize the runtime and peripherals.
+By convention, the *init* function is used to initialize the runtime and peripherals.
 
 `system.SetupPLL(8, 1, 48/8)` configures RCC to use PLL with external 8 MHz oscilator as system clock source. PLL divider is set to 1, multipler to 48/8 = 6 which gives 48 MHz system clock.
 
 `systick.Setup(2e6)` setups Cortex-M SYSTICK timer as system timer, which runs scheduler every 2e6 nanoseconds (500 times per second).
 
-`gpio.A.EnableClock(false)` enables clock for GPIO port A. `false` means that this clock should be disabled in low-power mode, but this is not implemented int STM32F0 series.
+`gpio.A.EnableClock(false)` enables clock for GPIO port A. *False* means that this clock should be disabled in low-power mode, but this is not implemented int STM32F0 series.
 
 `led.Setup(cfg)` setups PA4 pin as open-drain output.
 
@@ -251,7 +251,7 @@ func main() {
 }
 ```
 
-Code changes are minor: the second LED was added and the previous `main` was renamed to `blinky` and now requires two parameters. Main starts first blinky in new gorutine, so both LEDs are handled *concurrently*. It is worth mentioning that `gpio.Pin` type supports concurrent access to different pins of the same GPIO port.
+Code changes are minor: the second LED was added and the previous *main* function was renamed to *blinky* and now requires two parameters. *Main* starts first *blinky* in new gorutine, so both LEDs are handled *concurrently*. It is worth mentioning that *gpio.Pin* type supports concurrent access to different pins of the same GPIO port.
 
 Emgo still has several shortcomings. One of them is that you have to specify a maximum number of gorutines (tasks) in advance. It's time to edit *script.ld*:
 
@@ -275,14 +275,13 @@ $ arm-none-eabi-size cortexm0.elf
   10020     172     172   10364    287c cortexm0.elf
 ```
 
-Another LED and one gorutine costs 248 bytes of Flash.
+Another LED and gorutine costs 248 bytes of Flash.
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/gorutines.png)
 
 ## Channels
 
-Channels are [preffered way](https://blog.golang.org/share-memory-by-communicating) in Go to communicate between gorutines. Emgo goes even further and allows
-to use *buffered* channels by *interrupt handlers*. The next example actuall shows such case.
+Channels are the [preffered way](https://blog.golang.org/share-memory-by-communicating) in Go to communicate between gorutines. Emgo goes even further and allows to use *buffered* channels by *interrupt handlers*. The next example actually shows such case.
 
 ```go
 package main
@@ -301,7 +300,7 @@ import (
 var (
 	leds  [3]gpio.Pin
 	timer *tim.Periph
-	ch    = make(chan struct{}, 1)
+	ch    = make(chan int, 1)
 )
 
 func init() {
@@ -352,7 +351,7 @@ func timerISR() {
 	timer.SR.Store(0)
 	leds[0].Set()
 	select {
-	case ch <- struct{}{}:
+	case ch <- 0:
 		// Success
 	default:
 		leds[0].Clear()
@@ -369,23 +368,23 @@ Changes compared to the previous example:
 
 1. Thrid LED was added and connected to PA9 pin (TXD pin on UART header). 
 
-2. The timer has been introduced as a source of interrupts.
+2. The timer (TIM3) has been introduced as a source of interrupts.
 
-3. The new `timerISR` function handles `irq.TIM3` interrupt.
+3. The new *timerISR* function handles *irq.TIM3* interrupt.
 
-4. The new buffered channel with capacity 1 is intended for communication between timerISR and blinky gorutines. 
+4. The new buffered channel with capacity 1 is intended for communication between *timerISR* and *blinky* gorutines. 
 
-5. The ISRs array acts as *interrupt vector table*.
+5. The *ISRs* array acts as *interrupt vector table*, a parto of bigger *exception vector table*.
 
-6. The blinky's *for statement* was replaced with a *range statement*.
+6. The *blinky's for statement* was replaced with a *range statement*.
 
-For convenience, all LEDs, or rather their pins, have been collected in the array. Additionally, all pins have been set to a known initial state (high), just before they were configured as outputs.
+For convenience, all LEDs, or rather their pins, have been collected in the *leds* array. Additionally, all pins have been set to a known initial state (high), just before they were configured as outputs.
 
-In this case, we want the timer to tick at 1 kHz. To configure prescaler, we need to known its input clock frequency. According to RM the input clock frequency is equal to APBCLK when APBCLK = AHBCLK, otherwise it is equal to 2 x APBCLK.
+In this case, we want the timer to tick at 1 kHz. To configure TIM3 prescaler, we need to known its input clock frequency. According to RM the input clock frequency is equal to APBCLK when APBCLK = AHBCLK, otherwise it is equal to 2 x APBCLK.
 
-If the CNT register is incremented at 1 KHz, then the value of ARR register corresponds to the period of counter reload event (update event, UE) expressed in milliseconds. To make update event to generate interrupts, the UIE bit in DIER register must be set. The CEN bit enables the timer.
+If the CNT register is incremented at 1 KHz, then the value of ARR register corresponds to the period of counter *update event* (reload event) expressed in milliseconds. To make update event to generate interrupts, the UIE bit in DIER register must be set. The CEN bit enables the timer.
 
-The `timerISR` function handles `irq.TIM3` interrupt. `timer.SR.Store(0)` clears all event flags in SR register to deassert the interrupt to NVIC. The rule of thumb is to clear the interrupt flags immedaitely at begining of their handler, because of the IRQ deassert latency. This prevents unjustified re-call the handler again.
+The *timerISR* function handles *irq.TIM3* interrupt requests. `timer.SR.Store(0)` clears all event flags in SR register to deassert the interrupt to [NVIC](http://infocenter.arm.com/help/topic/com.arm.doc.ddi0432c/Cihbecee.html). The rule of thumb is to clear the interrupt flags immedaitely at begining of their handler, because of the IRQ deassert latency. This prevents unjustified re-call the handler again.
 
 The following code:
 
@@ -400,7 +399,7 @@ default:
 
 is a Go way to non-blocking sending on a channel. No one interrupt handler can afford to wait for a free space in the channel. If the channel is full, the default case is taken, and the onboard LED is set on, until the next interrupt.
 
-The `ISRs` array contains interrupt vectors. The `//c:__attribute__((section(".ISRs")))` causes that the linker will inserted it into .ISRs section.
+The *ISRs* array contains interrupt vectors. The `//c:__attribute__((section(".ISRs")))` causes that the linker will inserted it into .ISRs section.
 
 The new form of blinky's *for* loop:
 
@@ -428,7 +427,7 @@ for {
 }
 ```
 
-Note that in this case we aren't interested in the value received from the channel. We're interested only in the fact that there is something to receive. We give it expression by declaring the channel's element type as empty struct.
+Note that in this case we aren't interested in the value received from the channel. We're interested only in the fact that there is something to receive. We can give it expression by declaring the channel's element type as empty struct `struct{}` instead of *int* and send `struct{}{}` values instead of 0, but it can be strange for newcomer's eyes.
 
 Lets compile this code:
 
@@ -436,12 +435,12 @@ Lets compile this code:
 $ egc
 $ arm-none-eabi-size cortexm0.elf
    text    data     bss     dec     hex filename
-  11084     228     188   11500    2cec cortexm0.elf
+  11096     228     188   11512    2cf8 cortexm0.elf
 ```
 
-This new example takes 11312 bytes of Flash, 1120 bytes more than the previous one.
+This new example takes 11324 bytes of Flash, 1132 bytes more than the previous one.
 
-With current timings, both blinky gorutines consume much faster from the channel than the timerISR sends to it. So they both wait for new data simultaneously and you can observe the randomness of select, required by the [Go specification](https://golang.org/ref/spec#Select_statements).
+With current timings, both *blinky* gorutines consume from the channel much faster than the *timerISR* sends to it. So they both wait for new data simultaneously and you can observe the randomness of *select*, required by the [Go specification](https://golang.org/ref/spec#Select_statements).
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/channels1.png)
 
