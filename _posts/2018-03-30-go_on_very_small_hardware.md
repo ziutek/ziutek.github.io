@@ -449,7 +449,7 @@ With the current timings, both *blinky* goroutines consume from the channel much
 
 The onboard LED is always off, so the channel overrun never occurs.
 
-Let's speed up sending, by changing `timer.ARR.Store(200)` to `timer.ARR.Store(700)`. Now the *timerISR* sends 5 messages per second but both recipients together can receive only 4 messages per second.
+Let's speed up sending, by changing `timer.ARR.Store(700)` to `timer.ARR.Store(200)`. Now the *timerISR* sends 5 messages per second but both recipients together can receive only 4 messages per second.
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/channels2.png)
 
