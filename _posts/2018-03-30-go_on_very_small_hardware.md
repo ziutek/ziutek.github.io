@@ -209,7 +209,7 @@ For this article, the first time in my life, I converted short video to [animate
 
 ## More Go
 
-If you aren't a Go programmer but you've heard something about Go language, you can say: "This syntax is nice, but not a significant improvement over C. Show me *Go language*, give mi *channels* and *gorutines!*".
+If you aren't a Go programmer but you've heard something about Go language, you can say: "This syntax is nice, but not a significant improvement over C. Show me *Go language*, give mi *channels* and *goroutines!*".
 
 Here you are:
 
@@ -252,9 +252,9 @@ func main() {
 }
 ```
 
-Code changes are minor: the second LED was added and the previous *main* function was renamed to *blinky* and now requires two parameters. *Main* starts first *blinky* in new gorutine, so both LEDs are handled *concurrently*. It is worth mentioning that *gpio.Pin* type supports concurrent access to different pins of the same GPIO port.
+Code changes are minor: the second LED was added and the previous *main* function was renamed to *blinky* and now requires two parameters. *Main* starts first *blinky* in new goroutine, so both LEDs are handled *concurrently*. It is worth mentioning that *gpio.Pin* type supports concurrent access to different pins of the same GPIO port.
 
-Emgo still has several shortcomings. One of them is that you have to specify a maximum number of gorutines (tasks) in advance. It's time to edit *script.ld*:
+Emgo still has several shortcomings. One of them is that you have to specify a maximum number of goroutines (tasks) in advance. It's time to edit *script.ld*:
 
 ```
 ISRStack = 1024;
@@ -276,13 +276,13 @@ $ arm-none-eabi-size cortexm0.elf
   10020     172     172   10364    287c cortexm0.elf
 ```
 
-Another LED and gorutine costs 248 bytes of Flash.
+Another LED and goroutine costs 248 bytes of Flash.
 
-![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/gorutines.png)
+![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/goroutines.png)
 
 ## Channels
 
-Channels are the [preffered way](https://blog.golang.org/share-memory-by-communicating) in Go to communicate between gorutines. Emgo goes even further and allows to use *buffered* channels by *interrupt handlers*. The next example actually shows such case.
+Channels are the [preffered way](https://blog.golang.org/share-memory-by-communicating) in Go to communicate between goroutines. Emgo goes even further and allows to use *buffered* channels by *interrupt handlers*. The next example actually shows such case.
 
 ```go
 package main
@@ -373,7 +373,7 @@ Changes compared to the previous example:
 
 3. The new *timerISR* function handles *irq.TIM3* interrupt.
 
-4. The new buffered channel with capacity 1 is intended for communication between *timerISR* and *blinky* gorutines. 
+4. The new buffered channel with capacity 1 is intended for communication between *timerISR* and *blinky* goroutines. 
 
 5. The *ISRs* array acts as *interrupt vector table*, a parto of bigger *exception vector table*.
 
@@ -443,7 +443,7 @@ $ arm-none-eabi-size cortexm0.elf
 
 This new example takes 11324 bytes of Flash, 1132 bytes more than the previous one.
 
-With the current timings, both *blinky* gorutines consume from the channel much faster than the *timerISR* sends to it. So they both wait for new data simultaneously and you can observe the randomness of *select*, required by the [Go specification](https://golang.org/ref/spec#Select_statements).
+With the current timings, both *blinky* goroutines consume from the channel much faster than the *timerISR* sends to it. So they both wait for new data simultaneously and you can observe the randomness of *select*, required by the [Go specification](https://golang.org/ref/spec#Select_statements).
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/channels1.png)
 
