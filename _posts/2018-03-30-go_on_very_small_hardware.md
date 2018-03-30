@@ -383,7 +383,7 @@ For convenience, all LEDs, or rather their pins, have been collected in the *led
 
 In this case, we want the timer to tick at 1 kHz. To configure TIM3 prescaler, we need to known its input clock frequency. According to RM the input clock frequency is equal to APBCLK when APBCLK = AHBCLK, otherwise it is equal to 2 x APBCLK.
 
-If the CNT register is incremented at 1 KHz, then the value of ARR register corresponds to the period of counter *update event* (reload event) expressed in milliseconds. To make update event to generate interrupts, the UIE bit in DIER register must be set. The CEN bit enables the timer.
+If the CNT register is incremented at 1 kHz, then the value of ARR register corresponds to the period of counter *update event* (reload event) expressed in milliseconds. To make update event to generate interrupts, the UIE bit in DIER register must be set. The CEN bit enables the timer.
 
 Timer peripheral should stay enabled in low-power mode, to keep ticking when the CPU is put to sleep: `timer.EnableClock(true)`. It doesn't matter in case of STM32F0 but it's important for code portability.
 
