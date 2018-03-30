@@ -1,7 +1,6 @@
 ---
 layout: post
 title: Go on very small hardware (Part 1)
-permalink: /drafts/1
 tags: mcu go emgo
 ---
 
@@ -19,7 +18,7 @@ I bought it for three reasons. First, I have never dealt (as a programmer) with 
 
 The [STM32F030F4P6](http://www.st.com/content/st_com/en/products/microcontrollers/stm32-32-bit-arm-cortex-mcus/stm32-mainstream-mcus/stm32f0-series/stm32f0x0-value-line/stm32f030f4.html) is impresive piece of hardware:
 
-* CPU: [Cortex M0](https://en.wikipedia.org/wiki/ARM_Cortex-M#Cortex-M0) 48 MHz (only 12000 logic gates in minimal configuration),
+* CPU: [Cortex M0](https://en.wikipedia.org/wiki/ARM_Cortex-M#Cortex-M0) 48 MHz (only 12000 logic gates, in minimal configuration),
 * RAM: 4 KB,
 * Flash: 16 KB,
 * ADC, SPI, I2C, USART and a couple of timers,
@@ -114,7 +113,7 @@ exit status 1
 
 *Hello, World!* requires at last STM32F030x6, with its 32 KB of Flash.
 
-Fmt is a pretty big package, even a slimmed-down version in Emgo. We must forget about it. There are many applications that don't require fancy formatted text output. Often one or more LEDs are enough. However, in Part 2, I'll try to use strconv package to print something over UART. 
+The *fmt* package forces to include whole *strconv* and *reflect* packages. All three are pretty big. even a slimmed-down versions in Emgo. We must forget about it. There are many applications that don't require fancy formatted text output. Often one or more LEDs or seven segment display are enough. However, in Part 2, I'll try to use *strconv* package to format and print some numbers and text over UART. 
 
 ## Blinky
 
@@ -154,7 +153,7 @@ func main() {
 }
 ```
 
-By convention, the *init* function is used to initialize the runtime and peripherals.
+By convention, the *init* function is used to initialize the basic things and configure peripherals.
 
 `system.SetupPLL(8, 1, 48/8)` configures RCC to use PLL with external 8 MHz oscilator as system clock source. PLL divider is set to 1, multipler to 48/8 = 6 which gives 48 MHz system clock.
 
@@ -204,7 +203,7 @@ wrote 10240 bytes from file cortexm0.elf in 0.817425s (12.234 KiB/s)
 adapter speed: 950 kHz
 ```
 
-For this article, first time in my life, I converted short video to [animated PNG](https://en.wikipedia.org/wiki/APNG) sequence. I'm impressed, goodbye YouTube and sorry IE users. See [apngasm](http://apngasm.sourceforge.net/) for more info.
+For this article, the first time in my life, I converted short video to [animated PNG](https://en.wikipedia.org/wiki/APNG) sequence. I'm impressed, oodbye YouTube and sorry IE users. See [apngasm](http://apngasm.sourceforge.net/) for more info. I should study HTML5 based alternative, but for now, APNG is my preffered way for short looped videos.
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/blinky.png)
 
@@ -384,7 +383,9 @@ In this case, we want the timer to tick at 1 kHz. To configure TIM3 prescaler, w
 
 If the CNT register is incremented at 1 KHz, then the value of ARR register corresponds to the period of counter *update event* (reload event) expressed in milliseconds. To make update event to generate interrupts, the UIE bit in DIER register must be set. The CEN bit enables the timer.
 
-The *timerISR* function handles *irq.TIM3* interrupt requests. `timer.SR.Store(0)` clears all event flags in SR register to deassert the interrupt to [NVIC](http://infocenter.arm.com/help/topic/com.arm.doc.ddi0432c/Cihbecee.html). The rule of thumb is to clear the interrupt flags immedaitely at begining of their handler, because of the IRQ deassert latency. This prevents unjustified re-call the handler again.
+Timer peripheral should stay enabled in low-power mode, to keep ticking when the CPU is put to sleep: `timer.EnableClock(true)`. It doesn't matter in case of STM32F0 but it's important for code portability.
+
+The *timerISR* function handles *irq.TIM3* interrupt requests. `timer.SR.Store(0)` clears all event flags in SR register to deassert the IRQ to [NVIC](http://infocenter.arm.com/help/topic/com.arm.doc.ddi0432c/Cihbecee.html). The rule of thumb is to clear the interrupt flags immedaitely at begining of their handler, because of the IRQ deassert latency. This prevents unjustified re-call the handler again. For absolute certainty, the clear-read sequence should be performed, but in our case, just clearing is enough.
 
 The following code:
 
@@ -444,6 +445,17 @@ With current timings, both *blinky* gorutines consume from the channel much fast
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/channels1.png)
 
-Onboard LED is always off, so the channel overrun never occurs.
+The onboard LED is always off, so the channel overrun never occurs.
 
-Na tym kończę część pierwszą tego artykułu. Wyszedł bardzo długi, a i tak zawiera tylko połowę tego.
+Let's speed up sending by changing `timer.ARR.Store(200)` to `timer.ARR.Store(700)`. Now the *timerISR* sends 5 messages per second but both recipients together can receive only 4 messages per second.
+
+![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/channels2.png)
+
+As you can see, the *timerISR* lights the yellow LED which means there is no space in the channel.
+
+This is where I finish the first part of this article. You should know that this part didn't show you the most important thing in Go language, *interfaces*.
+
+Gorutines and channels are only nice and convenient syntax. You can easy replace them with your code - not easy but feasible. Interfaces are the essence of Go,
+and that's what I will start with in the next part of this article.
+
+We still have some free space on Flash.
