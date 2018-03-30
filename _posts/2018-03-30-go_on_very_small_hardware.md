@@ -326,7 +326,7 @@ func init() {
 	}
 	freq := uint(1e3) // Hz
 	timer.EnableClock(true)
-	timer.PSC.Store(tim.PSC(pclk / freq))
+	timer.PSC.Store(tim.PSC(pclk/freq - 1))
 	timer.ARR.Store(700) // ms
 	timer.DIER.Store(tim.UIE)
 	timer.CR1.Store(tim.CEN)
