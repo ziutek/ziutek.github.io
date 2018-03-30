@@ -8,7 +8,7 @@ How low we can *Go* and still do something useful?
 
 I recently bought this ridiculously cheap board:
 
-![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/board.jpg)
+[![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/board.jpg)]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html)
 
 I bought it for three reasons. First, I have never dealt (as a programmer) with STM32F0 series. Second, the STM32F10x series is getting old. MCUs belonging to the STM32F0 family are just as cheap if not cheaper and has newer peripherals, with many improvements and bugs fixed. Thirdly, I chose the smallest member of the family for the purpose of this article, to make the whole thing a little more intriguing.
 
