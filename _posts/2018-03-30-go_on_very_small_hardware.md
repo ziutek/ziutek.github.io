@@ -203,7 +203,7 @@ wrote 10240 bytes from file cortexm0.elf in 0.817425s (12.234 KiB/s)
 adapter speed: 950 kHz
 ```
 
-For this article, the first time in my life, I converted short video to [animated PNG](https://en.wikipedia.org/wiki/APNG) sequence. I'm impressed, oodbye YouTube and sorry IE users. See [apngasm](http://apngasm.sourceforge.net/) for more info. I should study HTML5 based alternative, but for now, APNG is my preffered way for short looped videos.
+For this article, the first time in my life, I converted short video to [animated PNG](https://en.wikipedia.org/wiki/APNG) sequence. I'm impressed, goodbye YouTube and sorry IE users. See [apngasm](http://apngasm.sourceforge.net/) for more info. I should study HTML5 based alternative, but for now, APNG is my preffered way for short looped videos.
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/blinky.png)
 
@@ -375,7 +375,7 @@ Changes compared to the previous example:
 
 4. The new buffered channel with capacity 1 is intended for communication between *timerISR* and *blinky* goroutines. 
 
-5. The *ISRs* array acts as *interrupt vector table*, a parto of bigger *exception vector table*.
+5. The *ISRs* array acts as *interrupt vector table*, a part of bigger *exception vector table*.
 
 6. The *blinky's for statement* was replaced with a *range statement*.
 
