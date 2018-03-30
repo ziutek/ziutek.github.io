@@ -46,7 +46,7 @@ and set a couple environment variables
 
 ```
 export EGCC=path_to_arm_gcc      # eg. /usr/local/arm/bin/arm-none-eabi-gcc
-export EGLD=path_to_arm_linekr   # eg. /usr/local/arm/bin/arm-none-eabi-ld
+export EGLD=path_to_arm_linker   # eg. /usr/local/arm/bin/arm-none-eabi-ld
 export EGAR=path_to_arm_archiver # eg. /usr/local/arm/bin/arm-none-eabi-ar
 
 export EGROOT=$HOME/emgo/egroot
