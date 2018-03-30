@@ -457,7 +457,7 @@ As you can see, the *timerISR* lights the yellow LED which means there is no spa
 
 This is where I finish the first part of this article. You should know that this part didn't show you the most important thing in Go language, *interfaces*.
 
-Gorutines and channels are only nice and convenient syntax. You can replace them with your own code - not easy but feasible. Interfaces are the essence of Go,
+Goroutines and channels are only nice and convenient syntax. You can replace them with your own code - not easy but feasible. Interfaces are the essence of Go,
 and that's what I will start with in the next part of this article.
 
 We still have some free space on Flash.
