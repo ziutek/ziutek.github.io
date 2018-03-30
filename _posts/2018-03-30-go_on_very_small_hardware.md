@@ -113,7 +113,7 @@ exit status 1
 
 *Hello, World!* requires at last STM32F030x6, with its 32 KB of Flash.
 
-The *fmt* package forces to include whole *strconv* and *reflect* packages. All three are pretty big. even a slimmed-down versions in Emgo. We must forget about it. There are many applications that don't require fancy formatted text output. Often one or more LEDs or seven segment display are enough. However, in Part 2, I'll try to use *strconv* package to format and print some numbers and text over UART. 
+The *fmt* package forces to include whole *strconv* and *reflect* packages. All three are pretty big, even a slimmed-down versions in Emgo. We must forget about it. There are many applications that don't require fancy formatted text output. Often one or more LEDs or seven segment display are enough. However, in Part 2, I'll try to use *strconv* package to format and print some numbers and text over UART. 
 
 ## Blinky
 
@@ -157,7 +157,7 @@ By convention, the *init* function is used to initialize the basic things and co
 
 `system.SetupPLL(8, 1, 48/8)` configures RCC to use PLL with external 8 MHz oscilator as system clock source. PLL divider is set to 1, multipler to 48/8 = 6 which gives 48 MHz system clock.
 
-`systick.Setup(2e6)` setups Cortex-M SYSTICK timer as system timer, which runs scheduler every 2e6 nanoseconds (500 times per second).
+`systick.Setup(2e6)` setups Cortex-M SYSTICK timer as system timer, which runs the scheduler every 2e6 nanoseconds (500 times per second).
 
 `gpio.A.EnableClock(false)` enables clock for GPIO port A. *False* means that this clock should be disabled in low-power mode, but this is not implemented int STM32F0 series.
 
@@ -210,6 +210,8 @@ For this article, the first time in my life, I converted short video to [animate
 ## More Go
 
 If you aren't a Go programmer but you've heard something about Go language, you can say: "This syntax is nice, but not a significant improvement over C. Show me *Go language*, give mi *channels* and *gorutines!*".
+
+Here you are:
 
 ```go
 import (
@@ -391,7 +393,7 @@ The following code:
 
 ```go
 select {
-case ch <- struct{}{}:
+case ch <- 0:
 	// Success
 default:
 	leds[0].Clear()
@@ -402,7 +404,7 @@ is a Go way to non-blocking sending on a channel. No one interrupt handler can a
 
 The *ISRs* array contains interrupt vectors. The `//c:__attribute__((section(".ISRs")))` causes that the linker will inserted it into .ISRs section.
 
-The new form of blinky's *for* loop:
+The new form of *blinky's for* loop:
 
 ```go
 for range ch {
@@ -441,13 +443,13 @@ $ arm-none-eabi-size cortexm0.elf
 
 This new example takes 11324 bytes of Flash, 1132 bytes more than the previous one.
 
-With current timings, both *blinky* gorutines consume from the channel much faster than the *timerISR* sends to it. So they both wait for new data simultaneously and you can observe the randomness of *select*, required by the [Go specification](https://golang.org/ref/spec#Select_statements).
+With the current timings, both *blinky* gorutines consume from the channel much faster than the *timerISR* sends to it. So they both wait for new data simultaneously and you can observe the randomness of *select*, required by the [Go specification](https://golang.org/ref/spec#Select_statements).
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/channels1.png)
 
 The onboard LED is always off, so the channel overrun never occurs.
 
-Let's speed up sending by changing `timer.ARR.Store(200)` to `timer.ARR.Store(700)`. Now the *timerISR* sends 5 messages per second but both recipients together can receive only 4 messages per second.
+Let's speed up sending, by changing `timer.ARR.Store(200)` to `timer.ARR.Store(700)`. Now the *timerISR* sends 5 messages per second but both recipients together can receive only 4 messages per second.
 
 ![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/channels2.png)
 
@@ -455,7 +457,7 @@ As you can see, the *timerISR* lights the yellow LED which means there is no spa
 
 This is where I finish the first part of this article. You should know that this part didn't show you the most important thing in Go language, *interfaces*.
 
-Gorutines and channels are only nice and convenient syntax. You can easy replace them with your code - not easy but feasible. Interfaces are the essence of Go,
+Gorutines and channels are only nice and convenient syntax. You can replace them with your own code - not easy but feasible. Interfaces are the essence of Go,
 and that's what I will start with in the next part of this article.
 
 We still have some free space on Flash.
