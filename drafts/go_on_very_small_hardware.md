@@ -5,7 +5,7 @@ tags: mcu go emgo
 permalink: drafts/1
 ---
 
-[![STM32F030F4P6]({{ site.baseur }}/images/mcu/f030-demo-board/board.jpg)]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware2.html)
+[![STM32F030F4P6]({{site.baseur}}/images/mcu/f030-demo-board/board.jpg)]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware2.html)
 
 At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write about *interfaces*. I won't give you here a complete or even brief lecture about the interfaces. Instead, I'll show you a simple example how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interfece. At the end I'll show you couple of examples that will push our little board to its borders.
 
@@ -33,7 +33,7 @@ func (led LED) Off() {
 
 In all previous examples, I tried to use the same open-drain configuration to don't complicate the code. But in the last example, it would be easier for me, to connect the thrid LED between GND and PA3, configured in push-pull mode. The next example will use a LED connected this way.
 
-But oure new *LED* type doesn't handle this configuration. In fact, we should call it *OpenDrainLED* and define another *PushPullLED* type:
+But our new *LED* type doesn't handle this configuration. In fact, we should call it *OpenDrainLED* and define another *PushPullLED* type:
 
 ```Go
 type PushPullLED struct {
@@ -49,7 +49,7 @@ func (led PushPullLED) Off() {
 }
 ```
 
-Note that both types share the same interface, which in both cases, does the same. It would be nice if the rest of the code, that uses LEDs could, use both types without paying attention to what type it uses. The interfaces comes to help:
+Note, that both types has the same methods, that work the same. It would be nice, if the rest of the code, that operate on LEDs, could use both types without paying attention to which one they use. The interfaces comes to help:
 
 ```Go
 package main
@@ -62,15 +62,20 @@ import (
 	"stm32/hal/system/timer/systick"
 )
 
+type LED interface {
+	On()
+	Off()
+}
+
 type PushPullLED struct{ pin gpio.Pin }
+
+func (led PushPullLED) On()  { led.pin.Set() }
+func (led PushPullLED) Off() { led.pin.Clear() }
 
 func MakePushPullLED(pin gpio.Pin) PushPullLED {
 	pin.Setup(&gpio.Config{Mode: gpio.Out, Driver: gpio.PushPull})
 	return PushPullLED{pin}
 }
-
-func (led PushPullLED) On()  { led.pin.Set() }
-func (led PushPullLED) Off() { led.pin.Clear() }
 
 type OpenDrainLED struct{ pin gpio.Pin }
 
@@ -80,11 +85,6 @@ func (led OpenDrainLED) Off() { led.pin.Set() }
 func MakeOpenDrainLED(pin gpio.Pin) OpenDrainLED {
 	pin.Setup(&gpio.Config{Mode: gpio.Out, Driver: gpio.OpenDrain})
 	return OpenDrainLED{pin}
-}
-
-type LED interface {
-	On()
-	Off()
 }
 
 var led1, led2 LED
@@ -112,3 +112,13 @@ func main() {
 	blinky(led2, 1000)
 }
 ```
+
+
+```
+$ egc
+$ arm-none-eabi-size cortexm0.elf 
+   text    data     bss     dec     hex filename
+  10356     196     212   10764    2a0c cortexm0.elf
+```
+
+![Interfaces]({{site.baseur}}/images/mcu/f030-demo-board/interfaces.png)
