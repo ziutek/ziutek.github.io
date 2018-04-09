@@ -7,17 +7,17 @@ permalink: drafts/1
 
 [![STM32F030F4P6]({{site.baseur}}/images/mcu/f030-demo-board/board.jpg)]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware2.html)
 
-At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write about *interfaces*. I won't give you here a complete or even brief lecture about the interfaces. Instead, I'll show you a simple example how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interfece. At the end I'll show you couple of examples that will push our little board to its borders.
+At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write about *interfaces*. I won't give you here a complete or even brief lecture about the interfaces. Instead, I'll show you a simple example, how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interfece. At the end of this article, I'll show you couple of examples that will push our little board to its borders.
 
 <!--more-->
 
 Interfeces are a crucial part of Go language. If you want to learn more about them, I suggest to read [Effective Go](https://golang.org/doc/effective_go.html#interfaces) and [Russ Cox article](https://research.swtch.com/interfaces).
 
-## Blinky, one more time
+## Blinky - one more time
 
-When you read the code of *Blinky* example, you probably noticed an counterintuitive way to set the LED on or off. The *Set* method was used to turn the LED off and the *Clear* method was used to turn the LED on. This is due to driving LEDs in open-drain configuration. What we can do to make the code less confusing? Lets define our own *LED* type with *On* and *Off* methods:
+When you read the code of the *Blinky* example, you probably noticed a counterintuitive way to turn the LED on or off. The *Set* method was used to turn the LED off and the *Clear* method was used to turn the LED on. This is due to driving LEDs in open-drain configuration. What we can do to make the code less confusing? Lets define our own *LED* type with *On* and *Off* methods:
 
-```Go
+```go
 type LED struct {
 	pin gpio.Pin
 }
@@ -31,11 +31,13 @@ func (led LED) Off() {
 }
 ```
 
-In all previous examples, I tried to use the same open-drain configuration to don't complicate the code. But in the last example, it would be easier for me, to connect the thrid LED between GND and PA3, configured in push-pull mode. The next example will use a LED connected this way.
+Now we can simpley call `led.On()` and `led.Off()`, which no longer raises any doubts.
 
-But our new *LED* type doesn't handle this configuration. In fact, we should call it *OpenDrainLED* and define another *PushPullLED* type:
+In all previous examples, I tried to use the same open-drain configuration, to don't complicate the code. But in the last example, it would be easier for me, to connect the thrid LED between GND and PA3 pins and configure PA3 in push-pull mode. The next example will use a LED connected this way.
 
-```Go
+But our new *LED* type doesn't support the push-pull configuration. In fact, we should call it *OpenDrainLED* and define another *PushPullLED* type:
+
+```go
 type PushPullLED struct {
 	pin gpio.Pin
 }
@@ -49,9 +51,9 @@ func (led PushPullLED) Off() {
 }
 ```
 
-Note, that both types has the same methods, that work the same. It would be nice, if the rest of the code, that operate on LEDs, could use both types without paying attention to which one they use. The interfaces comes to help:
+Note, that both types has the same methods, that work the same. It would be nice, if the rest of the code that operates on LEDs, could use both types without paying attention to which one they use at the moment. The interfaces come to help:
 
-```Go
+```go
 package main
 
 import (
@@ -119,6 +121,26 @@ $ egc
 $ arm-none-eabi-size cortexm0.elf 
    text    data     bss     dec     hex filename
   10356     196     212   10764    2a0c cortexm0.elf
+```
+
+
+```
+$ egc -nf -nt
+$ arm-none-eabi-size cortexm0.elf 
+   text    data     bss     dec     hex filename
+  10312     196     212   10720    29e0 cortexm0.elf
+```
+
+
+```
+$ egc
+$ cd $HOME/emgo
+$ ./clean.sh
+$ cd -
+$ egc -nf -nt
+$ arm-none-eabi-size cortexm0.elf 
+   text    data     bss     dec     hex filename
+  10272     196     212   10680    29b8 cortexm0.elf
 ```
 
 ![Interfaces]({{site.baseur}}/images/mcu/f030-demo-board/interfaces.png)
