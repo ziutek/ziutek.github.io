@@ -7,15 +7,15 @@ permalink: drafts/1
 
 [![STM32F030F4P6]({{site.baseur}}/images/mcu/f030-demo-board/board.jpg)]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware2.html)
 
-At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write about *interfaces*. I won't give you here a complete or even brief lecture about the interfaces. Instead, I'll show you a simple example, how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interfece. At the end of this article, I'll show you couple of examples that will push our little board to its borders.
+At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write about *interfaces*. I won't give you here a complete or even brief lecture about the interfaces. Instead, I'll show you a simple example how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interfece. At the end of this article I'll show you a couple of examples that will push our little board to its borders.
 
 <!--more-->
 
 Interfeces are a crucial part of Go language. If you want to learn more about them, I suggest to read [Effective Go](https://golang.org/doc/effective_go.html#interfaces) and [Russ Cox article](https://research.swtch.com/interfaces).
 
-## Blinky - one more time
+## Concurrent Blinky - revisited
 
-When you read the code of the *Blinky* example, you probably noticed a counterintuitive way to turn the LED on or off. The *Set* method was used to turn the LED off and the *Clear* method was used to turn the LED on. This is due to driving LEDs in open-drain configuration. What we can do to make the code less confusing? Lets define our own *LED* type with *On* and *Off* methods:
+When you read the code of previous examples you probably noticed a counterintuitive way to turn the LED on or off. The *Set* method was used to turn the LED off and the *Clear* method was used to turn the LED on. This is due to driving LEDs in open-drain configuration. What we can do to make the code less confusing? Let's define the *LED* type with *On* and *Off* methods:
 
 ```go
 type LED struct {
@@ -31,9 +31,9 @@ func (led LED) Off() {
 }
 ```
 
-Now we can simpley call `led.On()` and `led.Off()`, which no longer raises any doubts.
+Now we can simply call `led.On()` and `led.Off()` which no longer raises any doubts.
 
-In all previous examples, I tried to use the same open-drain configuration, to don't complicate the code. But in the last example, it would be easier for me, to connect the thrid LED between GND and PA3 pins and configure PA3 in push-pull mode. The next example will use a LED connected this way.
+In all previous examples I tried to use the same open-drain configuration to don't complicate the code. But in the last example, it would be easier for me to connect the thrid LED between GND and PA3 pins and configure PA3 in push-pull mode. The next example will use a LED connected this way.
 
 But our new *LED* type doesn't support the push-pull configuration. In fact, we should call it *OpenDrainLED* and define another *PushPullLED* type:
 
@@ -51,7 +51,7 @@ func (led PushPullLED) Off() {
 }
 ```
 
-Note, that both types has the same methods, that work the same. It would be nice, if the rest of the code that operates on LEDs, could use both types without paying attention to which one they use at the moment. The interfaces come to help:
+Note, that both types have the same methods that work the same. It would be nice if the code that operates on LEDs could use both types, without paying attention to which one it uses at the moment. The *interface type* comes to help:
 
 ```go
 package main
@@ -115,6 +115,16 @@ func main() {
 }
 ```
 
+We've defined *LED* interface that has two methods: *On* and *Off*. The *PushPullLED* and *OpenDrainLED* types represents two ways of driving LEDs. We also defined two *Make***LED* functions which act as constructors. Both types implement the *LED* interface, so the values of these types can be assigned to the variables of type *LED*: 
+
+```go
+led1 = MakeOpenDrainLED(gpio.A.Pin(4))
+led2 = MakePushPullLED(gpio.A.Pin(3))
+```
+
+In this case the assignability is checked at compile time. After the assignment the *led1* variable contains `OpenDrainLED{gpio.A.Pin(4)}` value and a pointer to the method set of the *OpenDrainLED* type. The `led1.On()` call roughly corresponds to the following C code: `led1.methods->On(led1.value)`. As you can see, this is quite inexpensive abstraction if only consider the function call overhead.
+
+But any assigment to the interface causes to include a lot of information about the assigned type:
 
 ```
 $ egc
@@ -123,6 +133,7 @@ $ arm-none-eabi-size cortexm0.elf
   10356     196     212   10764    2a0c cortexm0.elf
 ```
 
+If we don't use [reflection](https://blog.golang.org/laws-of-reflection) we can save some bytes by avoid to include the names of types and struct fields:
 
 ```
 $ egc -nf -nt
@@ -131,6 +142,9 @@ $ arm-none-eabi-size cortexm0.elf
   10312     196     212   10720    29e0 cortexm0.elf
 ```
 
+The resulted binary still contains some necessary information about types and full information about all exported methods (with names). These informatio are need for checking assignability at runtime, mainly when you assign one value stored in the interface variable to an other variable.
+
+We can also remove type and field names from imported packages by recompile them all:
 
 ```
 $ egc
@@ -142,5 +156,7 @@ $ arm-none-eabi-size cortexm0.elf
    text    data     bss     dec     hex filename
   10272     196     212   10680    29b8 cortexm0.elf
 ```
+
+
 
 ![Interfaces]({{site.baseur}}/images/mcu/f030-demo-board/interfaces.png)
