@@ -147,17 +147,16 @@ The resulted binary still contains some necessary information about types and fu
 We can also remove type and field names from imported packages by recompile them all:
 
 ```
-$ egc
 $ cd $HOME/emgo
 $ ./clean.sh
-$ cd -
+$ cd $HOME/firstemgo
 $ egc -nf -nt
 $ arm-none-eabi-size cortexm0.elf 
    text    data     bss     dec     hex filename
   10272     196     212   10680    29b8 cortexm0.elf
 ```
 
-Lets see does it work as expected. This time we'll use [st-flash](https://github.com/texane/stlink):
+Let's see does it work as expected. This time we'll use [st-flash](https://github.com/texane/stlink):
 
 ```
 $ arm-none-eabi-objcopy -O binary cortexm0.elf cortexm0.bin
@@ -253,21 +252,33 @@ var ISRs = [...]func(){
 }
 ```
 
-You can find this code slightly complicated because in addtion to USART peripheral you see DMA and interrupts. But for now there is no simple polling UART driver in STM32 HAL (it would be probably useful sometimes). The *usart.Driver* is efficient driver that uses DMA and interrupts to ofload the CPU.
+You can find this code slightly complicated but for now there is no simple polling UART driver in STM32 HAL (it would be probably useful in some cases). The *usart.Driver* is efficient driver that uses DMA and interrupts to ofload the CPU.
 
 STM32 USART peripheral provides traditional UART and its synchronous version. I this article I use the UART word rather as the name of phisical protocol and USART as the name of STM32 peripheral.
 
-To use USART perpheral we must connect its signals to selected pins of GPIO:
+To use USART perpheral we must connect its signals to selected GPIO pins:
 
 ```go
 port.Setup(tx, &gpio.Config{Mode: gpio.Alt})
 port.SetAltFunc(tx, gpio.USART1_AF1)
 ```
 
-We configuring the *usart.Driver* in Tx only mode (rxdma and rxbuf are set to nil):
+The *usart.Driver* is configured in Tx-only mode (rxdma and rxbuf are set to nil):
 
 ```go
 tts = usart.NewDriver(usart.USART1, d.Channel(2, 0), nil, nil)
 ```
 
+We use its *WriteString* method to print the famous sentence. Let's clean everything and compile this code:
 
+```
+$ cd $HOME/emgo
+$ ./clean.sh
+$ cd $HOME/firstemgo
+$ egc
+$ arm-none-eabi-size cortexm0.elf
+  text	   data	    bss	    dec	    hex	filename
+  12728	    236	    176	  13140	   3354	cortexm0.elf
+```
+
+You need UART peripheral in your PC to see something. **Do not use RS232 port or USB to RS232 converter!** STM32F0 uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that use 3.3 V logic (in case of FT232 based converters set VCCIO to 3.3V)..
