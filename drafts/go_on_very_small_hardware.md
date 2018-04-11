@@ -281,11 +281,15 @@ $ arm-none-eabi-size cortexm0.elf
   12728	    236	    176	  13140	   3354	cortexm0.elf
 ```
 
-You need UART peripheral in your PC to see something. **Do not use RS232 port or USB to RS232 converter!** STM32F0 uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that use 3.3 V logic (in case of FT232 based converters set VCCIO to 3.3V).
+You need UART peripheral in your PC to see something.
+
+**Do not use RS232 port or USB to RS232 converter!**
+
+STM32F0 uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that use 3.3 V logic (in case of FT232 based converters set VCCIO to 3.3V).
 
 ![UART]({{site.baseur}}/images/mcu/f030-demo-board/uart.jpg)
 
-You also need some kind of terminal emulation program (I prefer [picocom](https://github.com/npat-efault/picocom)). Flash the new image, run terminal emulator and press the reset button a few times:
+You also need terminal emulator program (I prefer [picocom](https://github.com/npat-efault/picocom)). Flash the new image, run terminal emulator and press the reset button a few times:
 
 
 ```
@@ -345,3 +349,95 @@ Hello, World!
 Every time you press the reset button, a new "Hello, World!" line appears - everything works as expected.
 
 ## io.Writer
+
+The *io.Writer* interface  is probably the second most commonly used interface type in Go, right after *error*. Its definition looks like this:
+
+```go
+type Writer interface {
+	Write(p []byte) (n int, err error)
+}
+```
+
+*usart.Driver* implements *io.Writer* so we can replace:
+
+```go
+tts.WriteString("Hello, World!\r\n")
+```
+
+with
+
+```go
+io.WriteString(tts, "Hello, World!\r\n")
+```
+
+Additionally you need to add the *io* package to the *import* section.
+
+The declaration of *io.WriteString* function looks as follows:
+
+```go
+func WriteString(w Writer, s string) (n int, err error)
+```
+
+As you can see *io.WriteString* function allows to write string using any type that implements *io.Writer* interface. Internally it check does the underlying type has *WriteString* method and uses it instead of *Write* if available.
+
+Let's compile the modified program:
+
+```
+$ egc
+$ arm-none-eabi-size cortexm0.elf 
+   text    data     bss     dec     hex filename
+  15456     320     248   16024    3e98 cortexm0.elf
+```
+
+As you can see, *io.WriteString* causes a significant increase in the size of the compiled program (15776 B - 12964 B = 2812 B). There isn't too much space left on the Flash.
+
+Let's print some numbers (import *strconv* package instead of *io*):
+
+```go
+func main() {
+	a := 12
+	b := -123
+
+	tts.WriteString("a = ")
+	strconv.WriteInt(tts, a, 10, 0, 0)
+	tts.WriteString("\r\n")
+	tts.WriteString("b = ")
+	strconv.WriteInt(tts, b, 10, 0, 0)
+	tts.WriteString("\r\n")
+	
+	tts.WriteString("hex(a) = ")
+	strconv.WriteInt(tts, a, 16, 0, 0)
+	tts.WriteString("\r\n")
+	tts.WriteString("hex(b) = ")
+	strconv.WriteInt(tts, b, 16, 0, 0)
+	tts.WriteString("\r\n")
+}
+```
+
+As in the case of *io.WriteString* function, the first arument of the *strconv.WriteInt* is of type *io.Writer*. 
+
+```
+$ egc
+/usr/local/arm/bin/arm-none-eabi-ld: /home/michal/firstemgo/cortexm0.elf section `.rodata' will not fit in region `Flash'
+/usr/local/arm/bin/arm-none-eabi-ld: region `Flash' overflowed by 692 bytes
+exit status 1
+```
+
+This time, we've run out of space. Let's try to slim down the information about types:
+
+```
+$ cd $HOME/emgo
+$ ./clean.sh
+$ cd $HOME/firstemgo
+$ egc -nf -nt
+$ arm-none-eabi-size cortexm0.elf
+   text    data     bss     dec     hex filename
+  15876     316     320   16512    4080 cortexm0.elf
+```
+
+```
+a = 12
+b = -123
+hex(a) = c
+hex(b) = -7b
+```
