@@ -281,4 +281,67 @@ $ arm-none-eabi-size cortexm0.elf
   12728	    236	    176	  13140	   3354	cortexm0.elf
 ```
 
-You need UART peripheral in your PC to see something. **Do not use RS232 port or USB to RS232 converter!** STM32F0 uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that use 3.3 V logic (in case of FT232 based converters set VCCIO to 3.3V)..
+You need UART peripheral in your PC to see something. **Do not use RS232 port or USB to RS232 converter!** STM32F0 uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that use 3.3 V logic (in case of FT232 based converters set VCCIO to 3.3V).
+
+![UART]({{site.baseur}}/images/mcu/f030-demo-board/uart.jpg)
+
+You also need some kind of terminal emulation program (I prefer [picocom](https://github.com/npat-efault/picocom)). Flash the new image, run terminal emulator and press the reset button a few times:
+
+
+```
+$ openocd -d0 -f interface/stlink.cfg -f target/stm32f0x.cfg -c 'init; program cortexm0.elf; reset run; exit'
+Open On-Chip Debugger 0.10.0+dev-00319-g8f1f912a (2018-03-07-19:20)
+Licensed under GNU GPL v2
+For bug reports, read
+        http://openocd.org/doc/doxygen/bugs.html
+debug_level: 0
+adapter speed: 1000 kHz
+adapter_nsrst_delay: 100
+none separate
+adapter speed: 950 kHz
+target halted due to debug-request, current mode: Thread 
+xPSR: 0xc1000000 pc: 0x080016f4 msp: 0x20000a20
+adapter speed: 4000 kHz
+** Programming Started **
+auto erase enabled
+target halted due to breakpoint, current mode: Thread 
+xPSR: 0x61000000 pc: 0x2000003a msp: 0x20000a20
+wrote 13312 bytes from file cortexm0.elf in 1.020185s (12.743 KiB/s)
+** Programming Finished **
+adapter speed: 950 kHz
+$
+$ picocom -b 115200 /dev/ttyUSB0 
+picocom v3.1
+
+port is        : /dev/ttyUSB0
+flowcontrol    : none
+baudrate is    : 115200
+parity is      : none
+databits are   : 8
+stopbits are   : 1
+escape is      : C-a
+local echo is  : no
+noinit is      : no
+noreset is     : no
+hangup is      : no
+nolock is      : no
+send_cmd is    : sz -vv
+receive_cmd is : rz -vv -E
+imap is        : 
+omap is        : 
+emap is        : crcrlf,delbs,
+logfile is     : none
+initstring     : none
+exit_after is  : not set
+exit is        : no
+
+Type [C-a] [C-h] to see available commands
+Terminal ready
+Hello, World!
+Hello, World!
+Hello, World!
+```
+
+Every time you press the reset button, a new "Hello, World!" line appears - everything works as expected.
+
+## io.Writer
