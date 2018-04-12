@@ -2,7 +2,7 @@
 layout: post
 title: Go on very small hardware (Part 2)
 tags: mcu go emgo
-permalink: drafts/1
+permalink: drafts/3
 ---
 
 [![STM32F030F4P6]({{site.baseur}}/images/mcu/f030-demo-board/board.jpg)]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware2.html)
@@ -13,9 +13,9 @@ At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_har
 
 Interfeces are a crucial part of Go language. If you want to learn more about them, I suggest to read [Effective Go](https://golang.org/doc/effective_go.html#interfaces) and [Russ Cox article](https://research.swtch.com/interfaces).
 
-## Concurrent Blinky - revisited
+## Concurrent Blinky -- revisited
 
-When you read the code of previous examples you probably noticed a counterintuitive way to turn the LED on or off. The *Set* method was used to turn the LED off and the *Clear* method was used to turn the LED on. This is due to driving LEDs in open-drain configuration. What we can do to make the code less confusing? Let's define the *LED* type with *On* and *Off* methods:
+When you read the code of previous examples you probably noticed a counterintuitive way to turn the LED on or off. The *Set* method was used to turn the LED off and the *Clear* method was used to turn the LED on. This is due to driving the LEDs in open-drain configuration. What we can do to make the code less confusing? Let's define the *LED* type with *On* and *Off* methods:
 
 ```go
 type LED struct {
@@ -115,7 +115,7 @@ func main() {
 }
 ```
 
-We've defined *LED* interface that has two methods: *On* and *Off*. The *PushPullLED* and *OpenDrainLED* types represents two ways of driving LEDs. We also defined two *Make***LED* functions which act as constructors. Both types implement the *LED* interface, so the values of these types can be assigned to the variables of type *LED*: 
+We've defined *LED* interface that has two methods: *On* and *Off*. The *PushPullLED* and *OpenDrainLED* types represent two ways of driving LEDs. We also defined two *Make***LED* functions which act as constructors. Both types implement the *LED* interface, so the values of these types can be assigned to the variables of type *LED*: 
 
 ```go
 led1 = MakeOpenDrainLED(gpio.A.Pin(4))
@@ -124,7 +124,7 @@ led2 = MakePushPullLED(gpio.A.Pin(3))
 
 In this case the assignability is checked at compile time. After the assignment the *led1* variable contains `OpenDrainLED{gpio.A.Pin(4)}` value and a pointer to the method set of the *OpenDrainLED* type. The `led1.On()` call roughly corresponds to the following C code: `led1.methods->On(led1.value)`. As you can see, this is quite inexpensive abstraction if only consider the function call overhead.
 
-But any assigment to an interface causes to include a lot of information about the assigned type:
+But any assigment to an interface causes to include a lot of information about the assigned type. There can be a lot information in case of complex type which consists of many other types.
 
 ```
 $ egc
@@ -142,7 +142,7 @@ $ arm-none-eabi-size cortexm0.elf
   10312     196     212   10720    29e0 cortexm0.elf
 ```
 
-The resulted binary still contains some necessary information about types and full information about all exported methods (with names). These information are need for checking assignability at runtime, mainly when you assign one value stored in the interface variable to an other variable.
+The resulted binary still contains some necessary information about types and full information about all exported methods (with names). This information is need for checking assignability at runtime, mainly when you assign one value stored in the interface variable to any other variable.
 
 We can also remove type and field names from imported packages by recompile them all:
 
@@ -156,7 +156,7 @@ $ arm-none-eabi-size cortexm0.elf
   10272     196     212   10680    29b8 cortexm0.elf
 ```
 
-Let's see does it work as expected. This time we'll use [st-flash](https://github.com/texane/stlink):
+Let's load this program to see does it work as expected. This time we'll use [st-flash](https://github.com/texane/stlink):
 
 ```
 $ arm-none-eabi-objcopy -O binary cortexm0.elf cortexm0.bin
@@ -176,11 +176,11 @@ Flash page at addr: 0x08002800 erased
 2018-04-10T22:04:35 INFO common.c: Flash written and verified! jolly good!
 ```
 
-I havn't connected the NRST signal to the programmer so the *---reset* option can't be used and the reset button must be pressed after programming.
+I haven't connected the NRST signal to the programmer so the *---reset* option can't be used and the reset button must be pressed after programming.
 
 ![Interfaces]({{site.baseur}}/images/mcu/f030-demo-board/interfaces.png)
 
-It seems that the *st-flash* works a bit unreliably with this board (often requires reseting the ST-LINK dongle). Additionally, the current version doesn't issue the reset command over SWD (uses only NRST signal). It isn't a big problem, especially that the software reset isn't realiable, however it introduces inconvenience. For this programmer--board pair the *OpenOCD* works much better.
+It seems that the *st-flash* works a bit unreliably with this board (often requires reseting the ST-LINK dongle). Additionally, the current version doesn't issue the reset command over SWD (uses only NRST signal). The software reset isn't realiable however it usually works and lack of it introduces inconvenience. For this board and programmer pair the *OpenOCD* works much better.
 
 ## UART
 
@@ -194,12 +194,13 @@ UART (Universal Aynchronous Receiver-Transmitter) is still one of the most impor
 
 This causes that UART, originally intedned to transmit asynchronous messages consisting of 7--9 bit words, is also used to efficiently implement various other phisical protocols such as used by [WS28xx LEDs](http://www.world-semi.com/products/index.html) or [1-wire](https://pl.wikipedia.org/wiki/1-Wire) devices.
 
-However, for now, we will use the UART in its usual role - as text output from our program:
+However, for now, we will use the UART in its usual role -- as text output from our program:
 
 ```go
 package main
 
 import (
+	"io"
 	"rtos"
 
 	"stm32/hal/dma"
@@ -217,10 +218,10 @@ func init() {
 	systick.Setup(2e6)
 
 	gpio.A.EnableClock(true)
-	port, tx := gpio.A, gpio.Pin9
+	tx := gpio.A.Pin(9)
 
-	port.Setup(tx, &gpio.Config{Mode: gpio.Alt})
-	port.SetAltFunc(tx, gpio.USART1_AF1)
+	tx.Setup(&gpio.Config{Mode: gpio.Alt})
+	tx.SetAltFunc(gpio.USART1_AF1)
 	d := dma.DMA1
 	d.EnableClock(true)
 	tts = usart.NewDriver(usart.USART1, d.Channel(2, 0), nil, nil)
@@ -234,7 +235,7 @@ func init() {
 }
 
 func main() {
-	tts.WriteString("Hello, World!\r\n")
+	io.WriteString(tts, "Hello, World!\r\n")
 }
 
 func ttsISR() {
@@ -252,15 +253,15 @@ var ISRs = [...]func(){
 }
 ```
 
-You can find this code slightly complicated but for now there is no simple polling UART driver in STM32 HAL (it would be probably useful in some cases). The *usart.Driver* is efficient driver that uses DMA and interrupts to ofload the CPU.
+You can find this code slightly complicated but for now there is no simpler UART driver in STM32 HAL (simple polling driver will be probably useful in some cases). The *usart.Driver* is efficient driver that uses DMA and interrupts to ofload the CPU but requires more code for configuration and to handle interrupts and DMA channels.
 
-STM32 USART peripheral provides traditional UART and its synchronous version. I this article I use the UART word rather as the name of phisical protocol and USART as the name of STM32 peripheral.
+STM32 USART peripheral provides traditional UART and its synchronous version. In this article I use the UART word rather as the name of the phisical protocol and the USART word as the name of STM32 peripheral.
 
-To use USART perpheral we must connect its signals to selected GPIO pins:
+To use the USART peripheral you must connect its Tx signal to the right GPIO pin:
 
 ```go
-port.Setup(tx, &gpio.Config{Mode: gpio.Alt})
-port.SetAltFunc(tx, gpio.USART1_AF1)
+tx.Setup(&gpio.Config{Mode: gpio.Alt})
+tx.SetAltFunc(gpio.USART1_AF1)
 ```
 
 The *usart.Driver* is configured in Tx-only mode (rxdma and rxbuf are set to nil):
@@ -281,15 +282,13 @@ $ arm-none-eabi-size cortexm0.elf
   12728	    236	    176	  13140	   3354	cortexm0.elf
 ```
 
-You need UART peripheral in your PC to see something.
+To see something you need an UART peripheral in your PC.
 
-**Do not use RS232 port or USB to RS232 converter!**
-
-STM32F0 uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that use 3.3 V logic (in case of FT232 based converters set VCCIO to 3.3V).
+**Do not use RS232 port or USB to RS232 converter!** STM32F0 uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that uses 3.3 V logic. Popular converters are based on FT232 or CP2102 chips.
 
 ![UART]({{site.baseur}}/images/mcu/f030-demo-board/uart.jpg)
 
-You also need terminal emulator program (I prefer [picocom](https://github.com/npat-efault/picocom)). Flash the new image, run terminal emulator and press the reset button a few times:
+You also need some terminal emulator program (I prefer [picocom](https://github.com/npat-efault/picocom)). Flash the new image, run the terminal emulator and press the reset button a few times:
 
 
 ```
@@ -346,11 +345,11 @@ Hello, World!
 Hello, World!
 ```
 
-Every time you press the reset button, a new "Hello, World!" line appears - everything works as expected.
+Every press of the reset button produces new "Hello, World!" line -- everything works as expected.
 
 ## io.Writer
 
-The *io.Writer* interface  is probably the second most commonly used interface type in Go, right after *error*. Its definition looks like this:
+The *io.Writer* interface  is probably the second most commonly used interface type in Go, right after the *error* interface. Its definition looks like this:
 
 ```go
 type Writer interface {
@@ -389,9 +388,31 @@ $ arm-none-eabi-size cortexm0.elf
   15456     320     248   16024    3e98 cortexm0.elf
 ```
 
-As you can see, *io.WriteString* causes a significant increase in the size of the compiled program (15776 B - 12964 B = 2812 B). There isn't too much space left on the Flash.
+As you can see, *io.WriteString* causes a significant increase in the size of the binary: 15776 B - 12964 B = 2812 B. There isn't too much space left on the Flash. What caused such a drastic increase in size?
 
-Let's print some numbers (import *strconv* package instead of *io*):
+Using the command:
+
+```
+arm-none-eabi-nm --print-size --size-sort --radix=d cortexm0.elf
+```
+
+we can print all symbols ordered by its size for both cases. By filtering and analyzing the obtained data (awk, diff) we can find about 80 new symbols. The ten largest are:
+
+```
+> 00000062 T stm32$hal$usart$Driver$DisableRx
+> 00000072 T stm32$hal$usart$Driver$RxDMAISR
+> 00000076 T internal$Type$Implements
+> 00000080 T stm32$hal$usart$Driver$EnableRx
+> 00000084 t errors$New
+> 00000096 R $8$stm32$hal$usart$Driver$$
+> 00000100 T stm32$hal$usart$Error$Error
+> 00000360 T io$WriteString
+> 00000660 T stm32$hal$usart$Driver$Read
+```
+
+So, even though we don't use the *usart.Driver.Read* method it was compiled in, same as *DisableRx*, *RxDMAISR*, *EnableRx* and other not mentioned above. Unfortunately, if you assign something to the interface, its full method set is required (with all dependences). This isn't a problem for a large programs that use most of the functions anyway. But for our simple one it's a huge burden.
+
+We're already close to the limits of our MCU but let's try to print some numbers (import *strconv* package instead of *io*):
 
 ```go
 func main() {
@@ -414,7 +435,7 @@ func main() {
 }
 ```
 
-As in the case of *io.WriteString* function, the first arument of the *strconv.WriteInt* is of type *io.Writer*. 
+As in the case of *io.WriteString* function, the first argument of the *strconv.WriteInt* is of type *io.Writer*. 
 
 ```
 $ egc
@@ -435,9 +456,33 @@ $ arm-none-eabi-size cortexm0.elf
   15876     316     320   16512    4080 cortexm0.elf
 ```
 
+It was close, but we fit. Let's run this code:
+
 ```
 a = 12
 b = -123
 hex(a) = c
 hex(b) = -7b
+```
+
+The *strconv* package is quite different from its archetype in Go. It is intended for direct use and in many cases can replace heavy *fmt* package. That's why the function names start with *Write* instead of *Format* and have additional two parameters. We will show their use on an example:
+
+```go
+func main() {
+	b := -123
+	strconv.WriteInt(tts, b, 10, 0, 0)
+	tts.WriteString("\r\n")
+	strconv.WriteInt(tts, b, 10, 6, ' ')
+	tts.WriteString("\r\n")
+	strconv.WriteInt(tts, b, 10, 6, '0')
+	tts.WriteString("\r\n")
+	strconv.WriteInt(tts, b, 10, 6, '.')
+	tts.WriteString("\r\n")
+	strconv.WriteInt(tts, b, 10, -6, ' ')
+	tts.WriteString("\r\n")
+	strconv.WriteInt(tts, b, 10, -6, '0')
+	tts.WriteString("\r\n")
+	strconv.WriteInt(tts, b, 10, -6, '.')
+	tts.WriteString("\r\n")
+}
 ```
