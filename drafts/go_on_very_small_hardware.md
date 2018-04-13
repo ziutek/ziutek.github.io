@@ -176,7 +176,7 @@ Flash page at addr: 0x08002800 erased
 2018-04-10T22:04:35 INFO common.c: Flash written and verified! jolly good!
 ```
 
-I haven't connected the NRST signal to the programmer so the *---reset* option can't be used and the reset button must be pressed after programming.
+I haven't connected the NRST signal to the programmer so the *---reset* option can't be used and the reset button have to be pressed after programming.
 
 ![Interfaces]({{site.baseur}}/images/mcu/f030-demo-board/interfaces.png)
 
@@ -253,11 +253,9 @@ var ISRs = [...]func(){
 }
 ```
 
-You can find this code slightly complicated but for now there is no simpler UART driver in STM32 HAL (simple polling driver will be probably useful in some cases). The *usart.Driver* is efficient driver that uses DMA and interrupts to ofload the CPU but requires more code for configuration and to handle interrupts and DMA channels.
+You can find this code slightly complicated but for now there is no simpler UART driver in STM32 HAL (simple polling driver will be probably useful in some cases). The *usart.Driver* is efficient driver that uses DMA and interrupts to ofload the CPU.
 
-STM32 USART peripheral provides traditional UART and its synchronous version. In this article I use the UART word rather as the name of the phisical protocol and the USART word as the name of STM32 peripheral.
-
-To use the USART peripheral you must connect its Tx signal to the right GPIO pin:
+STM32 USART peripheral provides traditional UART and its synchronous version. To use it as output we have to connect its Tx signal to the right GPIO pin:
 
 ```go
 tx.Setup(&gpio.Config{Mode: gpio.Alt})
@@ -346,6 +344,8 @@ Hello, World!
 ```
 
 Every press of the reset button produces new "Hello, World!" line -- everything works as expected.
+
+To see how UART works on this board in bi-directional mode check out [this example](https://github.com/ziutek/emgo/blob/master/egpath/src/stm32/examples/f030-demo-board/usart/main.go).
 
 ## io.Writer
 
@@ -456,7 +456,7 @@ $ arm-none-eabi-size cortexm0.elf
   15876     316     320   16512    4080 cortexm0.elf
 ```
 
-It was close, but we fit. Let's run this code:
+It was close, but we fit. Let's load and run this code:
 
 ```
 a = 12
@@ -499,7 +499,105 @@ There is its output:
 -123..
 ```
 
-[TODO] Morse code...
+## Unix streams and Morse code
+
+Thanks to the fact that most of the functions that write something use *io.Writer* instead of concrete type (eg. *FILE* in C) we get a functionality similar to *Unix streams*. In Unix we can write text to the file this way:
+
+```
+echo "Hello, World!" > file.txt
+```
+
+The `>` operator writes the output stream of the preceding command to the file. There is also `|` operator that connects output and input streams of of adjacent commands.
+
+Thanks to the streams we can easily convert/filter output of any command. For example, to convert all letters to uppercase we can filter the echo's output through *tr* command:
+
+```
+echo "Hello, World!" | tr a-z A-Z > file.txt
+```
+
+To show the analogy between *io.Writer* and Unix streams let's write our:
+
+```go
+io.WriteString(tts, "Hello, World!\r\n")
+```
+
+in the following pseudo-unix form:
+
+```
+io.WriteString "Hello, World!" | usart.Driver usart.USART1
+```
+
+The next example will show how to do this:
+
+```
+io.WriteString "Hello, World!" | MorseWriter | usart.Driver usart.USART1
+```
+
+Let's create a simple converter that encodes the text written to it using Morse code:
+
+```go
+type MorseWriter struct {
+	W io.Writer
+}
+
+func (w *MorseWriter) Write(s []byte) (n int, err error) {
+	var buf [8]byte
+	for _, c := range s {
+		if c < ' ' {
+			continue
+		}
+		if 'a' <= c && c <= 'z' {
+			c -= 'a' - 'A' // Convert to upper case.
+		}
+		if c > 'Z' {
+			continue
+		}
+		var symbol morseSymbol
+		if c == ' ' {
+			symbol.length = 2
+			buf[0] = ' '
+			buf[1] = ' '
+		} else {
+			symbol = morseSymbols[c-'!']
+			for i := uint(0); i < uint(symbol.length); i++ {
+				if (symbol.code>>i)&1 != 0 {
+					buf[i] = '-'
+				} else {
+					buf[i] = '.'
+				}
+			}
+		}
+		buf[symbol.length] = ' '
+		m, err := w.W.Write(buf[:symbol.length+1])
+		n += m
+		if err != nil {
+			return n, err
+		}
+	}
+	return n, nil
+}
+
+type morseSymbol struct {
+	code, length byte
+}
+
+//emgo:const
+var morseSymbols = [...]morseSymbol{
+	{1<<0 | 1<<1 | 1<<2, 4}, // ! ---.
+	{1<<1 | 1<<4, 6},        // " .-..-.
+	{},                      // #
+	{1<<3 | 1<<6, 7},        // $ ...-..-
+
+	// Cut out...
+
+	{1<<0 | 1<<3, 4},        // X -..-
+	{1<<0 | 1<<2 | 1<<3, 4}, // Y -.--
+	{1<<0 | 1<<1, 4},        // Z --..
+}
+
+```
+
+You can find the full *morseSymbols* table there. 
 
 ## Reflection
 
