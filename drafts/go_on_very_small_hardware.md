@@ -7,7 +7,7 @@ permalink: drafts/3
 
 [![STM32F030F4P6]({{site.baseur}}/images/mcu/f030-demo-board/board.jpg)]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware2.html)
 
-At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write about *interfaces*. I don't want to write here a complete or even brief lecture about the interfaces. Instead, I'll show a simple example how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interfece. At the end of this article I'll show a couple of examples that will push our little board to its borders.
+At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write about *interfaces*. I don't want to write here a complete or even brief lecture about the interfaces. Instead, I'll show a simple example how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interfece. There will also be a few words about *reflection* and *semihosting*.
 
 <!--more-->
 
@@ -377,7 +377,7 @@ The declaration of *io.WriteString* function looks as follows:
 func WriteString(w Writer, s string) (n int, err error)
 ```
 
-As you can see *io.WriteString* function allows to write string using any type that implements *io.Writer* interface. Internally it check does the underlying type has *WriteString* method and uses it instead of *Write* if available.
+As you can see, *io.WriteString* function allows to write string using any type that implements *io.Writer* interface. Internally it check does the underlying type has *WriteString* method and uses it instead of *Write* if available.
 
 Let's compile the modified program:
 
@@ -465,7 +465,7 @@ hex(a) = c
 hex(b) = -7b
 ```
 
-The *strconv* package is quite different from its archetype in Go. It is intended for direct use and in many cases can replace heavy *fmt* package. That's why the function names start with *Write* instead of *Format* and have additional two parameters. We will show their use on an example:
+The *strconv* package in Emgo is quite different from its archetype in Go. It is intended for direct use to write formatted numbers and in many cases can replace heavy *fmt* package. That's why the function names start with *Write* instead of *Format* and have additional two parameters. Bellow you can see their use on an example:
 
 ```go
 func main() {
@@ -486,3 +486,194 @@ func main() {
 	tts.WriteString("\r\n")
 }
 ```
+
+There is its output:
+
+```
+-123
+  -123
+-00123
+..-123
+-123  
+-123  
+-123..
+```
+
+[TODO] Morse code...
+
+## Reflection
+
+Yes, Emgo supports [reflection](https://blog.golang.org/laws-of-reflection). The *reflect* package isn't complete yet but that what is done is enough to implement *fmt.Print* family of functions. Let's see what can we do on our small MCU.
+
+To reduce memory usage we will use [semihosting](http://infocenter.arm.com/help/topic/com.arm.doc.dui0471g/Bgbjjgij.html) as standard output. For convenience, we also write simple *println* function which to some extent will mimic the *fmt.Println* function.
+
+```go
+package main
+
+import (
+	"debug/semihosting"
+	"reflect"
+	"strconv"
+
+	"stm32/hal/system"
+	"stm32/hal/system/timer/systick"
+)
+
+var stdout semihosting.File
+
+func init() {
+	system.SetupPLL(8, 1, 48/8)
+	systick.Setup(2e6)
+
+	var err error
+	stdout, err = semihosting.OpenFile(":tt", semihosting.W)
+	for err != nil {
+	}
+}
+
+type stringer interface {
+	String() string
+}
+
+func println(args ...interface{}) {
+	for i, a := range args {
+		if i > 0 {
+			stdout.WriteString(" ")
+		}
+		switch v := a.(type) {
+		case string:
+			stdout.WriteString(v)
+		case int:
+			strconv.WriteInt(stdout, v, 10, 0, 0)
+		case bool:
+			strconv.WriteBool(stdout, v, 't', 0, 0)
+		case stringer:
+			stdout.WriteString(v.String())
+		default:
+			stdout.WriteString("%unknown")
+		}
+	}
+	stdout.WriteString("\r\n")
+}
+
+type S struct {
+	A int
+	B bool
+}
+
+func main() {
+	p := &S{-123, true}
+
+	v := reflect.ValueOf(p)
+
+	println("kind(p) =", v.Kind())
+	println("kind(*p) =", v.Elem().Kind())
+	println("type(*p) =", v.Elem().Type())
+
+	v = v.Elem()
+
+	println("*p = {")
+	for i := 0; i < v.NumField(); i++ {
+		ft := v.Type().Field(i)
+		fv := v.Field(i)
+		println("  ", ft.Name(), ":", fv.Interface())
+	}
+	println("}")
+}
+```
+
+The *semihosting.OpenFile* function allows to open/create file on the host side. The special path *:tt* corresponds to host's standard output.
+
+The *println* function accepts arbitrary number of arguments, each of arbitrary type:
+
+```go
+func println(args ...interface{})
+```
+
+It's possible because the empty interface *interface{}* is implemented by any type. The *println* uses [type switch](https://golang.org/doc/effective_go.html#type_switch) to print strings, integers and booleans:
+
+```go
+switch v := a.(type) {
+case string:
+	stdout.WriteString(v)
+case int:
+	strconv.WriteInt(stdout, v, 10, 0, 0)
+case bool:
+	strconv.WriteBool(stdout, v, 't', 0, 0)
+case stringer:
+	stdout.WriteString(v.String())
+default:
+	stdout.WriteString("%unknown")
+}
+```
+
+Additionally it supports any type that implements *stringer* interface, that is, any type that has *String()* method. In the all *case* clauses the *v* variable has the right type, same as listed after *case* keyword.
+
+The `reflect.ValueOf(p)` returns *p* in the form that allows to analyze its type and content programmatically. As you can see, we can even dereference pointers using `v.Elem()` and print all struct fields with their names.
+
+Let's try to compile this code. For now let's see what will come out if compiled without type and field names:
+
+```
+$ egc -nt -nf
+$ arm-none-eabi-size cortexm0.elf 
+   text    data     bss     dec     hex filename
+  16028     216     312   16556    40ac cortexm0.elf
+```
+
+Only 140 free bytes left on the Flash. Let's load it using OpenOCD with semihosting enabled:
+
+```
+$ openocd -d0 -f interface/stlink.cfg -f target/stm32f0x.cfg -c 'init; program cortexm0.elf; arm semihosting enable; reset run'
+Open On-Chip Debugger 0.10.0+dev-00319-g8f1f912a (2018-03-07-19:20)
+Licensed under GNU GPL v2
+For bug reports, read
+        http://openocd.org/doc/doxygen/bugs.html
+debug_level: 0
+adapter speed: 1000 kHz
+adapter_nsrst_delay: 100
+none separate
+adapter speed: 950 kHz
+target halted due to debug-request, current mode: Thread 
+xPSR: 0xc1000000 pc: 0x08002338 msp: 0x20000a20
+adapter speed: 4000 kHz
+** Programming Started **
+auto erase enabled
+target halted due to breakpoint, current mode: Thread 
+xPSR: 0x61000000 pc: 0x2000003a msp: 0x20000a20
+wrote 16384 bytes from file cortexm0.elf in 0.700133s (22.853 KiB/s)
+** Programming Finished **
+semihosting is enabled
+adapter speed: 950 kHz
+kind(p) = ptr
+kind(*p) = struct
+type(*p) = 
+*p = {
+   X. : -123
+   X. : true
+}
+```
+
+If you've actually run this code, you noticed that semihosting is slow, especially if you write a byte after byte (buffering helps).
+
+As you can see, there is no type name for `*p` and all struct fields has the same *X.* name.  Let's compile this program again, this time without *-nt -nf* options:
+
+```
+$ egc
+$ arm-none-eabi-size cortexm0.elf 
+   text    data     bss     dec     hex filename
+  16052     216     312   16580    40c4 cortexm0.elf
+```
+
+Now the type and field names have been included but only these in *main.go* file. The output of our program looks as follows:
+
+```
+kind(p) = ptr
+kind(*p) = struct
+type(*p) = S
+*p = {
+   A : -123
+   B : true
+}
+```
+
+This is where I finish the second part of this article. I think there is a chance for the third part, more entertaining, where we connect to this board various interesting devices. If this board won't carry them, we replace it with something bigger.
