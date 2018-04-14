@@ -2,12 +2,11 @@
 layout: post
 title: Go on very small hardware (Part 2)
 tags: mcu go emgo
-permalink: drafts/3
 ---
 
-[![STM32F030F4P6]({{site.baseur}}/images/mcu/f030-demo-board/board.jpg)]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware2.html)
+[![STM32F030F4P6]({{site.baseur}}/images/mcu/f030-demo-board/board.jpg)]({{ site.baseur }}/2018/04/14/go_on_very_small_hardware2.html)
 
-At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write about *interfaces*. I don't want to write here a complete or even brief lecture about the interfaces. Instead, I'll show a simple example how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interfece. There will also be a few words about *reflection* and *semihosting*.
+At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write something about *interfaces*. I don't want to write here a complete or even brief lecture about the interfaces. Instead, I'll show a simple example how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interfece. There will also be a few words about *reflection* and *semihosting*.
 
 <!--more-->
 
@@ -33,7 +32,7 @@ func (led LED) Off() {
 
 Now we can simply call `led.On()` and `led.Off()` which no longer raises any doubts.
 
-In all previous examples I tried to use the same open-drain configuration to don't complicate the code. But in the last example, it would be easier for me to connect the thrid LED between GND and PA3 pins and configure PA3 in push-pull mode. The next example will use a LED connected this way.
+In all previous examples I tried to use the same open-drain configuration to don't complicate the code. But in the last example, it would be easier for me to connect the third LED between GND and PA3 pins and configure PA3 in push-pull mode. The next example will use a LED connected this way.
 
 But our new *LED* type doesn't support the push-pull configuration. In fact, we should call it *OpenDrainLED* and define another *PushPullLED* type:
 
@@ -288,7 +287,9 @@ $ arm-none-eabi-size cortexm0.elf
 
 To see something you need an UART peripheral in your PC.
 
-**Do not use RS232 port or USB to RS232 converter!** STM32F0 uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that uses 3.3 V logic. Popular converters are based on FT232 or CP2102 chips.
+**Do not use RS232 port or USB to RS232 converter!**
+
+STM32F0 uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that uses 3.3 V logic. Popular converters are based on FT232 or CP2102 chips.
 
 ![UART]({{site.baseur}}/images/mcu/f030-demo-board/uart.jpg)
 
@@ -383,7 +384,7 @@ The declaration of *io.WriteString* function looks as follows:
 func WriteString(w Writer, s string) (n int, err error)
 ```
 
-As you can see, *io.WriteString* function allows to write string using any type that implements *io.Writer* interface. Internally it check does the underlying type has *WriteString* method and uses it instead of *Write* if available.
+As you can see, the *io.WriteString* allows to write strings using any type that implements *io.Writer* interface. Internally it check does the underlying type has *WriteString* method and uses it instead of *Write* if available.
 
 Let's compile the modified program:
 
@@ -394,7 +395,7 @@ $ arm-none-eabi-size cortexm0.elf
   15456     320     248   16024    3e98 cortexm0.elf
 ```
 
-As you can see, *io.WriteString* causes a significant increase in the size of the binary: 15776 B - 12964 B = 2812 B. There isn't too much space left on the Flash. What caused such a drastic increase in size?
+As you can see, *io.WriteString* causes a significant increase in the size of the binary: 15776 - 12964 = 2812 bytes. There isn't too much space left on the Flash. What caused such a drastic increase in size?
 
 Using the command:
 
@@ -416,7 +417,7 @@ we can print all symbols ordered by its size for both cases. By filtering and an
 > 00000660 T stm32$hal$usart$Driver$Read
 ```
 
-So, even though we don't use the *usart.Driver.Read* method it was compiled in, same as *DisableRx*, *RxDMAISR*, *EnableRx* and other not mentioned above. Unfortunately, if you assign something to the interface, its full method set is required (with all dependences). This isn't a problem for a large programs that use most of the functions anyway. But for our simple one it's a huge burden.
+So, even though we don't use the *usart.Driver.Read* method it was compiled in, same as *DisableRx*, *RxDMAISR*, *EnableRx* and other not mentioned above. Unfortunately, if you assign something to the interface, its full method set is required (with all dependences). This isn't a problem for a large programs that use most of the methods anyway. But for our simple one it's a huge burden.
 
 We're already close to the limits of our MCU but let's try to print some numbers (you need to replace *io* package with *strconv* in *import* section):
 
@@ -450,7 +451,7 @@ $ egc
 exit status 1
 ```
 
-This time, we've run out of space. Let's try to slim down the information about types:
+This time we've run out of space. Let's try to slim down the information about types:
 
 ```
 $ cd $HOME/emgo
@@ -615,7 +616,7 @@ func main() {
 
 We use the pointer to the *MorseWriter* `&MorseWriter{tts}` instead os simple `MorseWriter{tts}` value beacuse the *MorseWriter* is to big to fit into an interface variable.
 
-Emgo, unlike Go, doesn't dynamically allocate memory for value stored in interface variable. The interface type has limited size, equal to the three pointers (to fit slice type) or two *uint64/float64* (to fit *complex128*), what is bigger. It can directly store values of all basic types and small structs/arrays. Unfortunately `struct{i interface{}}` is too big because an interface type stores both a value and its type.
+Emgo, unlike Go, doesn't dynamically allocate memory for value stored in interface variable. The interface type has limited size, equal to the size of three pointers (to fit *slice*) or two *float64* (to fit *complex128*), what is bigger. It can directly store values of all basic types and small structs/arrays but for bigger values you must use pointers.
 
 Let's compile this code and see its output:
 
@@ -633,7 +634,7 @@ Hello, World!
 
 ### The Ultimate Blinky
 
-The *Blinky* is hardware equivalent of *Hello, World!* Once we have a Morse encoder we can easly combine both to obtain the *Ultimate Blinky* program:
+The *Blinky* is hardware equivalent of *Hello, World!* program. Once we have a Morse encoder we can easly combine both to obtain the *Ultimate Blinky* program:
 
 ```go
 package main
@@ -812,7 +813,7 @@ default:
 }
 ```
 
-Additionally it supports any type that implements *stringer* interface, that is, any type that has *String()* method. In the all *case* clauses the *v* variable has the right type, same as listed after *case* keyword.
+Additionally it supports any type that implements *stringer* interface, that is, any type that has *String()* method. In any *case* clause the *v* variable has the right type, same as listed after *case* keyword.
 
 The `reflect.ValueOf(p)` returns *p* in the form that allows to analyze its type and content programmatically. As you can see, we can even dereference pointers using `v.Elem()` and print all struct fields with their names.
 
@@ -881,6 +882,6 @@ type(*p) = S
 }
 ```
 
-Reflection in MCU context isn't a toy. It is a crucial part of any confenient to use serialization library. Serialization algorithms, like [JSON](https://en.wikipedia.org/wiki/JSON), gain in importance in the IOT era.
+Reflection is a crucial part of any easy to use serialization library. Serialization algorithms, like [JSON](https://en.wikipedia.org/wiki/JSON), gain in importance in the IOT era.
 
-This is where I finish the second part of this article. I think there is a chance for the third part, more entertaining, where we connect to this board various interesting devices. If this board won't carry them, we replace it with something bigger.
+This is where I finish the second part of this article. I think there is a chance for the third part, more entertaining, where we connect to this board various interesting devices. If this board won't carry them, we replace it with something a little bigger.
