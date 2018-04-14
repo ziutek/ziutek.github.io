@@ -10,7 +10,7 @@ At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_har
 
 <!--more-->
 
-Interfeces are a crucial part of Go language. If you want to learn more about them, I suggest to read [Effective Go](https://golang.org/doc/effective_go.html#interfaces) and [Russ Cox article](https://research.swtch.com/interfaces).
+Interfaces are a crucial part of Go language. If you want to learn more about them, I suggest to read [Effective Go](https://golang.org/doc/effective_go.html#interfaces) and [Russ Cox article](https://research.swtch.com/interfaces).
 
 ## Concurrent Blinky -- revisited
 
@@ -892,6 +892,6 @@ type(*p) = S
 }
 ```
 
-Reflection is a crucial part of any easy to use serialization library. Serialization algorithms, like [JSON](https://en.wikipedia.org/wiki/JSON), gain in importance in the IOT era.
+Reflection is a crucial part of any easy to use serialization library and serialization ~~algorithms~~ like [JSON](https://en.wikipedia.org/wiki/JSON) gain in importance in the IOT era.
 
 This is where I finish the second part of this article. I think there is a chance for the third part, more entertaining, where we connect to this board various interesting devices. If this board won't carry them, we replace it with something a little bigger.
