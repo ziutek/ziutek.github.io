@@ -70,8 +70,13 @@ type LED interface {
 
 type PushPullLED struct{ pin gpio.Pin }
 
-func (led PushPullLED) On()  { led.pin.Set() }
-func (led PushPullLED) Off() { led.pin.Clear() }
+func (led PushPullLED) On()  {
+	led.pin.Set()
+}
+
+func (led PushPullLED) Off() {
+	led.pin.Clear()
+}
 
 func MakePushPullLED(pin gpio.Pin) PushPullLED {
 	pin.Setup(&gpio.Config{Mode: gpio.Out, Driver: gpio.PushPull})
@@ -80,8 +85,13 @@ func MakePushPullLED(pin gpio.Pin) PushPullLED {
 
 type OpenDrainLED struct{ pin gpio.Pin }
 
-func (led OpenDrainLED) On()  { led.pin.Clear() }
-func (led OpenDrainLED) Off() { led.pin.Set() }
+func (led OpenDrainLED) On()  {
+	led.pin.Clear()
+}
+
+func (led OpenDrainLED) Off() {
+	led.pin.Set()
+}
 
 func MakeOpenDrainLED(pin gpio.Pin) OpenDrainLED {
 	pin.Setup(&gpio.Config{Mode: gpio.Out, Driver: gpio.OpenDrain})
