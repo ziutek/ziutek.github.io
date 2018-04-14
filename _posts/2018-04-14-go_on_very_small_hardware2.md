@@ -6,7 +6,7 @@ tags: mcu go emgo
 
 [![STM32F030F4P6]({{site.baseur}}/images/mcu/f030-demo-board/board.jpg)]({{ site.baseur }}/2018/04/14/go_on_very_small_hardware2.html)
 
-At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write something about *interfaces*. I don't want to write here a complete or even brief lecture about the interfaces. Instead, I'll show a simple example how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interfece. There will also be a few words about *reflection* and *semihosting*.
+At the end of the [first part]({{ site.baseur }}/2018/03/30/go_on_very_small_hardware.html) of this article I promised to write something about *interfaces*. I don't want to write here a complete or even brief lecture about the interfaces. Instead, I'll show a simple example how to define and use an interface, and then, how to take advantage of ubiquitous *io.Writer* interface. There will also be a few words about *reflection* and *semihosting*.
 
 <!--more-->
 
@@ -299,7 +299,7 @@ To see something you need an UART peripheral in your PC.
 
 **Do not use RS232 port or USB to RS232 converter!**
 
-STM32F0 uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that uses 3.3 V logic. Popular converters are based on FT232 or CP2102 chips.
+The STM32 family uses 3.3 V logic but RS232 can produce from -15 V to +15 V which will probably demage your MCU. You need USB to UART converter that uses 3.3 V logic. Popular converters are based on FT232 or CP2102 chips.
 
 ![UART]({{site.baseur}}/images/mcu/f030-demo-board/uart.jpg)
 
