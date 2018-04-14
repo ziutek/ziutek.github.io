@@ -122,9 +122,15 @@ led1 = MakeOpenDrainLED(gpio.A.Pin(4))
 led2 = MakePushPullLED(gpio.A.Pin(3))
 ```
 
-In this case the assignability is checked at compile time. After the assignment the *led1* variable contains `OpenDrainLED{gpio.A.Pin(4)}` value and a pointer to the method set of the *OpenDrainLED* type. The `led1.On()` call roughly corresponds to the following C code: `led1.methods->On(led1.value)`. As you can see, this is quite inexpensive abstraction if only consider the function call overhead.
+In this case the assignability is checked at compile time. After the assignment the *led1* variable contains `OpenDrainLED{gpio.A.Pin(4)}` and a pointer to the method set of the *OpenDrainLED* type. The `led1.On()` call roughly corresponds to the following C code:
 
-But any assigment to an interface causes to include a lot of information about the assigned type. There can be a lot information in case of complex type which consists of many other types.
+```c
+led1.methods->On(led1.value)
+```
+
+As you can see, this is quite inexpensive abstraction if only consider the function call overhead.
+
+But any assigment to an interface causes to include a lot of information about the assigned type. There can be a lot information in case of complex type which consists of many other types:
 
 ```
 $ egc
@@ -144,7 +150,7 @@ $ arm-none-eabi-size cortexm0.elf
 
 The resulted binary still contains some necessary information about types and full information about all exported methods (with names). This information is need for checking assignability at runtime, mainly when you assign one value stored in the interface variable to any other variable.
 
-We can also remove type and field names from imported packages by recompile them all:
+We can also remove type and field names from imported packages by recompiling them all:
 
 ```
 $ cd $HOME/emgo
@@ -156,7 +162,7 @@ $ arm-none-eabi-size cortexm0.elf
   10272     196     212   10680    29b8 cortexm0.elf
 ```
 
-Let's load this program to see does it work as expected. This time we'll use [st-flash](https://github.com/texane/stlink):
+Let's load this program to see does it work as expected. This time we'll use the [st-flash](https://github.com/texane/stlink) command:
 
 ```
 $ arm-none-eabi-objcopy -O binary cortexm0.elf cortexm0.bin
@@ -176,11 +182,11 @@ Flash page at addr: 0x08002800 erased
 2018-04-10T22:04:35 INFO common.c: Flash written and verified! jolly good!
 ```
 
-I haven't connected the NRST signal to the programmer so the *---reset* option can't be used and the reset button have to be pressed after programming.
+I didn't connected the NRST signal to the programmer so the *---reset* option can't be used and the reset button have to be pressed to run the program.
 
 ![Interfaces]({{site.baseur}}/images/mcu/f030-demo-board/interfaces.png)
 
-It seems that the *st-flash* works a bit unreliably with this board (often requires reseting the ST-LINK dongle). Additionally, the current version doesn't issue the reset command over SWD (uses only NRST signal). The software reset isn't realiable however it usually works and lack of it introduces inconvenience. For this board and programmer pair the *OpenOCD* works much better.
+It seems that the *st-flash* works a bit unreliably with this board (often requires reseting the ST-LINK dongle). Additionally, the current version doesn't issue the reset command over SWD (uses only NRST signal). The software reset isn't realiable however it usually works and lack of it introduces inconvenience. For this board-programmer pair the *OpenOCD* works much better.
 
 ## UART
 
@@ -192,9 +198,9 @@ UART (Universal Aynchronous Receiver-Transmitter) is still one of the most impor
 - synchronous in-band signaling about new data (start bit),
 - accurate timing inside transmitted word.
 
-This causes that UART, originally intedned to transmit asynchronous messages consisting of 7--9 bit words, is also used to efficiently implement various other phisical protocols such as used by [WS28xx LEDs](http://www.world-semi.com/products/index.html) or [1-wire](https://pl.wikipedia.org/wiki/1-Wire) devices.
+This causes that UART, originally intedned to transmit asynchronous messages consisting of 7-9 bit words, is also used to efficiently implement various other phisical protocols such as used by [WS28xx LEDs](http://www.world-semi.com/products/index.html) or [1-wire](https://pl.wikipedia.org/wiki/1-Wire) devices.
 
-However, for now, we will use the UART in its usual role -- as text output from our program:
+However, we will use the UART in its usual role: to printing text messages from our program.
 
 ```go
 package main
@@ -268,7 +274,7 @@ The *usart.Driver* is configured in Tx-only mode (rxdma and rxbuf are set to nil
 tts = usart.NewDriver(usart.USART1, d.Channel(2, 0), nil, nil)
 ```
 
-We use its *WriteString* method to print the famous sentence. Let's clean everything and compile this code:
+We use its *WriteString* method to print the famous sentence. Let's clean everything and compile this program:
 
 ```
 $ cd $HOME/emgo
@@ -343,9 +349,9 @@ Hello, World!
 Hello, World!
 ```
 
-Every press of the reset button produces new "Hello, World!" line -- everything works as expected.
+Every press of the reset button produces new "Hello, World!" line. Everything works as expected.
 
-To see how UART works on this board in bi-directional mode check out [this example](https://github.com/ziutek/emgo/blob/master/egpath/src/stm32/examples/f030-demo-board/usart/main.go).
+To see bi-directional UART code for this MCU check out [this example](https://github.com/ziutek/emgo/blob/master/egpath/src/stm32/examples/f030-demo-board/usart/main.go).
 
 ## io.Writer
 
@@ -412,7 +418,7 @@ we can print all symbols ordered by its size for both cases. By filtering and an
 
 So, even though we don't use the *usart.Driver.Read* method it was compiled in, same as *DisableRx*, *RxDMAISR*, *EnableRx* and other not mentioned above. Unfortunately, if you assign something to the interface, its full method set is required (with all dependences). This isn't a problem for a large programs that use most of the functions anyway. But for our simple one it's a huge burden.
 
-We're already close to the limits of our MCU but let's try to print some numbers (import *strconv* package instead of *io*):
+We're already close to the limits of our MCU but let's try to print some numbers (you need to replace *io* package with *strconv* in *import* section):
 
 ```go
 func main() {
@@ -465,7 +471,7 @@ hex(a) = c
 hex(b) = -7b
 ```
 
-The *strconv* package in Emgo is quite different from its archetype in Go. It is intended for direct use to write formatted numbers and in many cases can replace heavy *fmt* package. That's why the function names start with *Write* instead of *Format* and have additional two parameters. Bellow you can see their use on an example:
+The *strconv* package in Emgo is quite different from its archetype in Go. It is intended for direct use to write formatted numbers and in many cases can replace heavy *fmt* package. That's why the function names start with *Write* instead of *Format* and have additional two parameters. Below is an example of their use:
 
 ```go
 func main() {
@@ -501,13 +507,13 @@ There is its output:
 
 ## Unix streams and Morse code
 
-Thanks to the fact that most of the functions that write something use *io.Writer* instead of concrete type (eg. *FILE* in C) we get a functionality similar to *Unix streams*. In Unix we can write text to the file this way:
+Thanks to the fact that most of the functions that write something use *io.Writer* instead of concrete type (eg. *FILE* in C) we get a functionality similar to *Unix streams*. In Unix we can easily combine simple commands to perform larger tasks. For example, we can write text to the file this way:
 
 ```
 echo "Hello, World!" > file.txt
 ```
 
-The `>` operator writes the output stream of the preceding command to the file. There is also `|` operator that connects output and input streams of of adjacent commands.
+The `>` operator writes the output stream of the preceding command to the file. There is also `|` operator that connects output and input streams of adjacent commands.
 
 Thanks to the streams we can easily convert/filter output of any command. For example, to convert all letters to uppercase we can filter the echo's output through *tr* command:
 
@@ -533,30 +539,29 @@ The next example will show how to do this:
 io.WriteString "Hello, World!" | MorseWriter | usart.Driver usart.USART1
 ```
 
-Let's create a simple converter that encodes the text written to it using Morse code:
+Let's create a simple encoder that encodes the text written to it using Morse coding:
 
 ```go
 type MorseWriter struct {
 	W io.Writer
 }
 
-func (w *MorseWriter) Write(s []byte) (n int, err error) {
+func (w *MorseWriter) Write(s []byte) (int, error) {
 	var buf [8]byte
-	for _, c := range s {
-		if c < ' ' {
-			continue
-		}
-		if 'a' <= c && c <= 'z' {
+	for n, c := range s {
+		switch {
+		case c == '\n':
+			c = ' ' // Replace new lines with spaces.
+		case 'a' <= c && c <= 'z':
 			c -= 'a' - 'A' // Convert to upper case.
 		}
-		if c > 'Z' {
-			continue
+		if c < ' ' || 'Z' < c {
+			continue // c is outside ASCII [' ', 'Z']
 		}
 		var symbol morseSymbol
 		if c == ' ' {
-			symbol.length = 2
+			symbol.length = 1
 			buf[0] = ' '
-			buf[1] = ' '
 		} else {
 			symbol = morseSymbols[c-'!']
 			for i := uint(0); i < uint(symbol.length); i++ {
@@ -568,13 +573,11 @@ func (w *MorseWriter) Write(s []byte) (n int, err error) {
 			}
 		}
 		buf[symbol.length] = ' '
-		m, err := w.W.Write(buf[:symbol.length+1])
-		n += m
-		if err != nil {
+		if _, err := w.W.Write(buf[:symbol.length+1]); err != nil {
 			return n, err
 		}
 	}
-	return n, nil
+	return len(s), nil
 }
 
 type morseSymbol struct {
@@ -588,22 +591,126 @@ var morseSymbols = [...]morseSymbol{
 	{},                      // #
 	{1<<3 | 1<<6, 7},        // $ ...-..-
 
-	// Cut out...
+	// Some code omitted...
 
 	{1<<0 | 1<<3, 4},        // X -..-
 	{1<<0 | 1<<2 | 1<<3, 4}, // Y -.--
 	{1<<0 | 1<<1, 4},        // Z --..
 }
-
 ```
 
-You can find the full *morseSymbols* table there. 
+You can find the full *morseSymbols* table [here](https://github.com/ziutek/emgo/blob/master/egpath/src/stm32/examples/f030-demo-board/morseuart/main.go). The `//emgo:const` directive ensures that *morseSymbols* table won't be copied to the RAM.
+
+Now we can print our sentence in two ways:
+
+```go
+func main() {
+	s := "Hello, World!\r\n"
+	mw := &MorseWriter{tts}
+
+	io.WriteString(tts, s)
+	io.WriteString(mw, s)
+}
+```
+
+We use the pointer to the *MorseWriter* `&MorseWriter{tts}` instead os simple `MorseWriter{tts}` value beacuse the *MorseWriter* is to big to fit into an interface variable.
+
+Emgo, unlike Go, doesn't dynamically allocate memory for value stored in interface variable. The interface type has limited size, equal to the three pointers (to fit slice type) or two *uint64/float64* (to fit *complex128*), what is bigger. It can directly store values of all basic types and small structs/arrays. Unfortunately `struct{i interface{}}` is too big because an interface type stores both a value and its type.
+
+Let's compile this code and see its output:
+
+```
+$ egc
+$ arm-none-eabi-size cortexm0.elf
+   text    data     bss     dec     hex filename
+  15152     324     248   15724    3d6c cortexm0.elf
+```
+
+```
+Hello, World!
+.... . .-.. .-.. --- --..--   .-- --- .-. .-.. -.. ---.
+```
+
+### The Ultimate Blinky
+
+The *Blinky* is hardware equivalent of *Hello, World!* Once we have a Morse encoder we can easly combine both to obtain the *Ultimate Blinky* program:
+
+```go
+package main
+
+import (
+	"delay"
+	"io"
+
+	"stm32/hal/gpio"
+	"stm32/hal/system"
+	"stm32/hal/system/timer/systick"
+)
+
+var led gpio.Pin
+
+func init() {
+	system.SetupPLL(8, 1, 48/8)
+	systick.Setup(2e6)
+
+	gpio.A.EnableClock(false)
+	led = gpio.A.Pin(4)
+
+	cfg := gpio.Config{Mode: gpio.Out, Driver: gpio.OpenDrain, Speed: gpio.Low}
+	led.Setup(&cfg)
+}
+
+type Telegraph struct {
+	Pin   gpio.Pin
+	Dotms int // Dot length [ms]
+}
+
+func (t Telegraph) Write(s []byte) (int, error) {
+	for _, c := range s {
+		switch c {
+		case '.':
+			t.Pin.Clear()
+			delay.Millisec(t.Dotms)
+			t.Pin.Set()
+			delay.Millisec(t.Dotms)
+		case '-':
+			t.Pin.Clear()
+			delay.Millisec(3 * t.Dotms)
+			t.Pin.Set()
+			delay.Millisec(t.Dotms)
+		case ' ':
+			delay.Millisec(3 * t.Dotms)
+		}
+	}
+	return len(s), nil
+}
+
+func main() {
+	telegraph := &MorseWriter{Telegraph{led, 100}}
+	for {
+		io.WriteString(telegraph, "Hello, World! ")
+	}
+}
+
+// Some code omitted...
+```
+
+In the above example I omitted the definition of *MorseWriter* type because it was shown earlier. The full version is available [here](https://github.com/ziutek/emgo/blob/master/egpath/src/stm32/examples/f030-demo-board/morseled/main.go). Let's compile it and run:
+
+```
+$ egc
+$ arm-none-eabi-size cortexm0.elf
+   text    data     bss     dec     hex filename
+  11772     244     244   12260    2fe4 cortexm0.elf
+```
+
+![Ultimate Blinky]({{site.baseur}}/images/mcu/f030-demo-board/morse.png)
 
 ## Reflection
 
 Yes, Emgo supports [reflection](https://blog.golang.org/laws-of-reflection). The *reflect* package isn't complete yet but that what is done is enough to implement *fmt.Print* family of functions. Let's see what can we do on our small MCU.
 
-To reduce memory usage we will use [semihosting](http://infocenter.arm.com/help/topic/com.arm.doc.dui0471g/Bgbjjgij.html) as standard output. For convenience, we also write simple *println* function which to some extent will mimic the *fmt.Println* function.
+To reduce memory usage we will use [semihosting](http://infocenter.arm.com/help/topic/com.arm.doc.dui0471g/Bgbjjgij.html) as standard output. For convenience, we also write simple *println* function which to some extent mimics *fmt.Println*.
 
 ```go
 package main
@@ -773,5 +880,7 @@ type(*p) = S
    B : true
 }
 ```
+
+Reflection in MCU context isn't a toy. It is a crucial part of any confenient to use serialization library. Serialization algorithms, like [JSON](https://en.wikipedia.org/wiki/JSON), gain in importance in the IOT era.
 
 This is where I finish the second part of this article. I think there is a chance for the third part, more entertaining, where we connect to this board various interesting devices. If this board won't carry them, we replace it with something bigger.
