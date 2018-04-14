@@ -861,7 +861,7 @@ type(*p) =
 
 If you've actually run this code, you noticed that semihosting is slow, especially if you write a byte after byte (buffering helps).
 
-As you can see, there is no type name for `*p` and all struct fields has the same *X.* name.  Let's compile this program again, this time without *-nt -nf* options:
+As you can see, there is no type name for `*p` and all struct fields have the same *X.* name.  Let's compile this program again, this time without *-nt -nf* options:
 
 ```
 $ egc
