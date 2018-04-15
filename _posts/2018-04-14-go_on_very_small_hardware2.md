@@ -207,7 +207,7 @@ UART (Universal Aynchronous Receiver-Transmitter) is still one of the most impor
 - synchronous in-band signaling about new data (start bit),
 - accurate timing inside transmitted word.
 
-This causes that UART, originally intedned to transmit asynchronous messages consisting of 7-9 bit words, is also used to efficiently implement various other phisical protocols such as used by [WS28xx LEDs](http://www.world-semi.com/products/index.html) or [1-wire](https://en.wikipedia.org/wiki/1-Wire) devices.
+This causes that UART, originally intedned to transmit asynchronous messages consisting of 7-9 bit words, is also used to efficiently implement various other phisical protocols such as used by [WS28xx LEDs](http://www.world-semi.com/solution/list-4-1.html) or [1-wire](https://en.wikipedia.org/wiki/1-Wire) devices.
 
 However, we will use the UART in its usual role: to printing text messages from our program.
 
