@@ -806,7 +806,7 @@ The *println* function accepts arbitrary number of arguments, each of arbitrary 
 func println(args ...interface{})
 ```
 
-It's possible because the empty interface *interface{}* is implemented by any type. The *println* uses [type switch](https://golang.org/doc/effective_go.html#type_switch) to print strings, integers and booleans:
+It's possible because any type implements the empty interface *interface{}*. The *println* uses [type switch](https://golang.org/doc/effective_go.html#type_switch) to print strings, integers and booleans:
 
 ```go
 switch v := a.(type) {
