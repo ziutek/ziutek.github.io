@@ -610,7 +610,7 @@ var morseSymbols = [...]morseSymbol{
 }
 ```
 
-You can find the full *morseSymbols* table [here](https://github.com/ziutek/emgo/blob/master/egpath/src/stm32/examples/f030-demo-board/morseuart/main.go). The `//emgo:const` directive ensures that *morseSymbols* table won't be copied to the RAM.
+You can find the full *morseSymbols* array [here](https://github.com/ziutek/emgo/blob/master/egpath/src/stm32/examples/f030-demo-board/morseuart/main.go). The `//emgo:const` directive ensures that *morseSymbols* array won't be copied to the RAM.
 
 Now we can print our sentence in two ways:
 
@@ -880,7 +880,7 @@ $ arm-none-eabi-size cortexm0.elf
   16052     216     312   16580    40c4 cortexm0.elf
 ```
 
-Now the type and field names have been included but only these in *main.go* file. The output of our program looks as follows:
+Now the type and field names have been included but only these defined in ~~*main.go* file~~ *main* package. The output of our program looks as follows:
 
 ```
 kind(p) = ptr
