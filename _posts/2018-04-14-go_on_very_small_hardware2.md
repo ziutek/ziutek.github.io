@@ -215,7 +215,6 @@ However, we will use the UART in its usual role: to printing text messages from 
 package main
 
 import (
-	"io"
 	"rtos"
 
 	"stm32/hal/dma"
@@ -250,7 +249,7 @@ func init() {
 }
 
 func main() {
-	io.WriteString(tts, "Hello, World!\r\n")
+	tts.WriteString("Hello, World!\r\n")
 }
 
 func ttsISR() {
