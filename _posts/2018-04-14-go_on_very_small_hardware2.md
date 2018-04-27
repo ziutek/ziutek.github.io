@@ -197,7 +197,7 @@ I didn't connected the NRST signal to the programmer so the *---reset* option ca
 
 It seems that the *st-flash* works a bit unreliably with this board (often requires reseting the ST-LINK dongle). Additionally, the current version doesn't issue the reset command over SWD (uses only NRST signal). The software reset isn't realiable however it usually works and lack of it introduces inconvenience. For this board-programmer pair the *OpenOCD* works much better.
 
-## UART
+## [UART](#uart)
 
 UART (Universal Aynchronous Receiver-Transmitter) is still one of the most important peripherals of today's microcontrollers. Its advantage is unique combination of the following properties:
 
