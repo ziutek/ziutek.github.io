@@ -43,5 +43,141 @@ Our STM32F030F4P6 MCU (whole STM32F0 and newer families) has one important thing
 
 So you can't use popular [Blue Pill](https://jeelabs.org/article/1649a/) or [STM32F4-DISCOVERY](http://www.st.com/en/evaluation-tools/stm32f4discovery.html) this way. Use their SPI peripheral or an external inverter (see [Christmas Tree Lights](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/minidev/treelights) for more information).
 
-Let's finish this lengthy introduction and go to the code:
+Let's finish this lengthy introduction and go to the code. This time I will put the code and description in pieces.
 
+Let's start with the *import* section:
+
+```go
+package main
+
+import (
+	"delay"
+	"rtos"
+
+	"led"
+	"led/ws281x/wsuart"
+
+	"stm32/hal/dma"
+	"stm32/hal/gpio"
+	"stm32/hal/irq"
+	"stm32/hal/system"
+	"stm32/hal/system/timer/systick"
+	"stm32/hal/usart"
+)
+```
+
+The only new thing compared to previous examples is *led* package with its *led/ws281x* subtree. Currently *led* contains only definition of *Color* type. I was wondering about *color* package outside the *led* tree or using *Color* or *RGBA* type from *image/color*. For now I ended with *led.Color* type but I'm not very happy about it. I was also wondering to define LED strip in the way that it will implement *image.Image* interface but because of *gamma correction* and big overhead of *image/draw* package I ended with simple slice.
+
+There are also not many novelties in the *init* function:
+
+```go
+var (
+	tts *usart.Driver
+	btn gpio.Pin
+)
+
+func init() {
+	system.SetupPLL(8, 1, 48/8)
+	systick.Setup(2e6)
+
+	gpio.A.EnableClock(true)
+	btn = gpio.A.Pin(4)
+	tx := gpio.A.Pin(9)
+
+	btn.Setup(&gpio.Config{Mode: gpio.In, Pull: gpio.PullUp})
+
+	tx.Setup(&gpio.Config{Mode: gpio.Alt})
+	tx.SetAltFunc(gpio.USART1_AF1)
+	d := dma.DMA1
+	d.EnableClock(true)
+
+	// 1390 ns/WS2812bit = 3 * 463 ns/UARTbit -> BR = 3 * 1e9 ns/s / 1390 ns/bit
+
+	tts = usart.NewDriver(usart.USART1, d.Channel(2, 0), nil, nil)
+	tts.Periph().EnableClock(true)
+	tts.Periph().SetBaudRate(3000000000 / 1390)
+	tts.Periph().SetConf2(usart.TxInv) // STM32F0 need no external inverter.
+	tts.Periph().Enable()
+	tts.EnableTx()
+
+	rtos.IRQ(irq.USART1).Enable()
+	rtos.IRQ(irq.DMA1_Channel2_3).Enable()
+}
+```
+
+```go
+func main() {
+	var setClock, setSpeed int
+	rgb := wsuart.GRB
+	strip := make(wsuart.Strip, 24)
+	for {
+		hs := int(rtos.Nanosec() / 5e8) // Half-seconds elapsed since reset.
+		hs += setClock
+
+		hs %= 12 * 3600 * 2 // Half-seconds from the last 0:00 or 12:00.
+		h := len(strip) * hs / (12 * 3600 * 2)
+
+		hs %= 3600 * 2 // Half-second from the beginning of the current hour.
+		m := len(strip) * hs / (3600 * 2)
+
+		hs %= 60 * 2 // Half-second from the beginning of the current minute.
+		s := len(strip) * hs / (60 * 2)
+
+		hc := led.Color(0x550000)
+		mc := led.Color(0x005500)
+		sc := led.Color(0x000055)
+
+		// Blend colors if the hands of the clock overlap.
+		if h == m {
+			hc |= mc
+			mc = hc
+		}
+		if m == s {
+			mc |= sc
+			sc = mc
+		}
+		if s == h {
+			sc |= hc
+			hc = sc
+		}
+
+		strip.Clear()
+		strip[h] = rgb.Pixel(hc)
+		strip[m] = rgb.Pixel(mc)
+		strip[s] = rgb.Pixel(sc)
+		tts.Write(strip.Bytes())
+
+		// Set colck.
+		if btn.Load() == 0 {
+			setClock += setSpeed
+			i := 0
+			for btn.Load() == 0 && i < 10 {
+				delay.Millisec(20)
+				i++
+			}
+			if i == 10 && setSpeed < 10*60*2 {
+				setSpeed += 10
+			}
+			continue
+		}
+		setSpeed = 5
+		delay.Millisec(50)
+	}
+}
+```
+
+```go
+func ttsISR() {
+	tts.ISR()
+}
+
+func ttsDMAISR() {
+	tts.TxDMAISR()
+}
+
+//c:__attribute__((section(".ISRs")))
+var ISRs = [...]func(){
+	irq.USART1:          ttsISR,
+	irq.DMA1_Channel2_3: ttsDMAISR,
+}
+```
