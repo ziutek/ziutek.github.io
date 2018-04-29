@@ -56,6 +56,7 @@ import (
 	"led/ws281x/wsuart"
 
 	"stm32/hal/dma"
+	"stm32/hal/exti"
 	"stm32/hal/gpio"
 	"stm32/hal/irq"
 	"stm32/hal/system"
@@ -64,8 +65,9 @@ import (
 )
 
 var (
-	tts *usart.Driver
-	btn gpio.Pin
+	tts   *usart.Driver
+	btn   gpio.Pin
+	btnev rtos.EventFlag
 )
 
 func init() {
@@ -77,82 +79,103 @@ func init() {
 	tx := gpio.A.Pin(9)
 
 	btn.Setup(&gpio.Config{Mode: gpio.In, Pull: gpio.PullUp})
+	ei := exti.Lines(btn.Mask())
+	ei.Connect(btn.Port())
+	ei.EnableFallTrig()
+	ei.EnableRisiTrig()
+	ei.EnableIRQ()
+	rtos.IRQ(irq.EXTI4_15).Enable()
 
 	tx.Setup(&gpio.Config{Mode: gpio.Alt})
 	tx.SetAltFunc(gpio.USART1_AF1)
 	d := dma.DMA1
 	d.EnableClock(true)
 
-	// 1390 ns/WS2812bit = 3 * 463 ns/UARTbit -> BR = 3 * 1e9 ns/s / 1390 ns/bit
-
 	tts = usart.NewDriver(usart.USART1, d.Channel(2, 0), nil, nil)
 	tts.Periph().EnableClock(true)
 	tts.Periph().SetBaudRate(3000000000 / 1390)
-	tts.Periph().SetConf2(usart.TxInv) // STM32F0 need no external inverter.
+	tts.Periph().SetConf2(usart.TxInv)
 	tts.Periph().Enable()
 	tts.EnableTx()
-
 	rtos.IRQ(irq.USART1).Enable()
 	rtos.IRQ(irq.DMA1_Channel2_3).Enable()
 }
 
 func main() {
-	var setClock, setSpeed int
 	rgb := wsuart.GRB
 	strip := make(wsuart.Strip, 24)
+	ds := 4 * 60 / len(strip) // Interval between LEDs (quarter-seconds).
+	adjust := 0
+	adjspeed := ds
 	for {
-		hs := int(rtos.Nanosec() / 5e8) // Half-seconds elapsed since reset.
-		hs += setClock
+		qs := int(rtos.Nanosec() / 25e7) // Quarter-seconds since reset.
+		qa := qs + adjust
 
-		hs %= 12 * 3600 * 2 // Half-seconds from the last 0:00 or 12:00.
-		h := len(strip) * hs / (12 * 3600 * 2)
+		qa %= 12 * 3600 * 4 // Quarter-seconds since 0:00 or 12:00.
+		hi := len(strip) * qa / (12 * 3600 * 4)
 
-		hs %= 3600 * 2 // Half-second from the beginning of the current hour.
-		m := len(strip) * hs / (3600 * 2)
+		qa %= 3600 * 4 // Quarter-seconds in the current hour.
+		mi := len(strip) * qa / (3600 * 4)
 
-		hs %= 60 * 2 // Half-second from the beginning of the current minute.
-		s := len(strip) * hs / (60 * 2)
+		qa %= 60 * 4 // Quarter-seconds in the current minute.
+		si := len(strip) * qa / (60 * 4)
 
 		hc := led.Color(0x550000)
 		mc := led.Color(0x005500)
 		sc := led.Color(0x000055)
 
 		// Blend colors if the hands of the clock overlap.
-		if h == m {
+		if hi == mi {
 			hc |= mc
 			mc = hc
 		}
-		if m == s {
+		if mi == si {
 			mc |= sc
 			sc = mc
 		}
-		if s == h {
+		if si == hi {
 			sc |= hc
 			hc = sc
 		}
 
 		// Draw the clock and send to the ring.
 		strip.Clear()
-		strip[h] = rgb.Pixel(hc)
-		strip[m] = rgb.Pixel(mc)
-		strip[s] = rgb.Pixel(sc)
+		strip[hi] = rgb.Pixel(hc)
+		strip[mi] = rgb.Pixel(mc)
+		strip[si] = rgb.Pixel(sc)
 		tts.Write(strip.Bytes())
 
-		// Adjust the clock.
-		if btn.Load() == 0 {
-			setClock += setSpeed
-			i, n := 0, 10
-			for btn.Load() == 0 && i < n {
-				delay.Millisec(20)
-				i++
+		// Sleep until the button pressed or the second hand should be moved.
+		if btnWait(0, int64(qs+ds)*25e7) {
+			adjust += adjspeed
+			// Sleep until the button is released or timeout.
+			if !btnWait(1, rtos.Nanosec()+100e6) {
+				if adjspeed < 5*60*4 {
+					adjspeed += 2 * ds
+				}
+				continue
 			}
-			if i == n && setSpeed < 10*60*2 {
-				setSpeed += 10
-			}
-			continue
+			adjspeed = ds
 		}
-		setSpeed = 5
-		delay.Millisec(50)
+	}
+}
+
+func btnWait(state int, deadline int64) bool {
+	for btn.Load() != state {
+		if !btnev.Wait(1, deadline) {
+			return false // timeout
+		}
+		btnev.Reset(0)
+	}
+	delay.Millisec(50) // debouncing
+	return true
+}
+
+func exti4_15ISR() {
+	pending := exti.Pending() & 0xFFF0
+	pending.ClearPending()
+	if pending&exti.Lines(btn.Mask()) != 0 {
+		btnev.Signal(1)
 	}
 }
 
@@ -168,29 +191,62 @@ func ttsDMAISR() {
 var ISRs = [...]func(){
 	irq.USART1:          ttsISR,
 	irq.DMA1_Channel2_3: ttsDMAISR,
+	irq.EXTI4_15:        exti4_15ISR,
 }
-
 ```
 
-The only new thing in the *import* section compared to the previous examples is the *led* package with its *led/ws281x* subtree. Currently the *led* package itself contains only definition of *Color* type. I was wondering about *color* package outside the *led* tree or using *Color* or *RGBA* type from *image/color*. For now I ended with *led.Color* type but not very happy with it. I was also wondering to define LED strip in the way that it will implement *image.Image* interface but because of using of [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction) and big overhead of *image/draw* package I ended with simple `type Strip []Pixel`, so you can subslice it, use *range*, *copy* and many well known idioms.
+#### The *import* section
 
-There are also not so many novelties in the *init* function. The PA4 pin is used to set the clock. The `btn.Setup(&gpio.Config{Mode: gpio.In, Pull: gpio.PullUp})` configures it as input with internal pull-up resistor enabled. The PA4 pin is connected to the onboard LED but that doesn't hinder us. More important is that it's located next to the GND pin so we can use any metal object to set the clock.
+The only new thing in the *import* section compared to the previous examples is the *led* package with its *led/ws281x* subtree. Currently the *led* package itself contains only definition of *Color* type. I was wondering about *color* package outside the *led* tree or using *Color* or *RGBA* type from *image/color*. For now I ended with *led.Color* type but not very happy with it. I was also wondering to define LED strip in the way that it will implement *image.Image* interface but because of using of [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction) and big overhead of *image/draw* package I ended with simple `type Strip []Pixel`.
 
-As you can see the baudrate was changed from 115200 to 3000000000/1390 ≈ 2158273 which corresponds to 1390 nanoseconds per WS2812 bit. The `SetConf2(usart.TxInv)` sets the TXINV bit in CR2 register to invert Tx signal.
+#### The *init* function
+
+There are three new things in the *init* function:
+
+1. The PA4 pin is configured as input with internal pull-up resistor enabled:
+```go
+btn.Setup(&gpio.Config{Mode: gpio.In, Pull: gpio.PullUp})
+```
+This pin is connected to the onboard LED but that doesn't hinder anything. More important is that it's located next to the GND pin so we can use any metal object to set the clock. As a bonus we have additional feedback from onboard LED.
+
+2. The EXTI peripheral is configured to track PA4 input and generate an interrupt on any change:
+```go
+ei := exti.Lines(btn.Mask())
+ei.Connect(btn.Port())
+ei.EnableFallTrig()
+ei.EnableRisiTrig()
+ei.EnableIRQ()
+```
+
+3. The inversion of UART Tx signal is enabled:
+```go
+tts.Periph().SetConf2(usart.TxInv)
+```
+
+Additionally the baudrate was changed from 115200 to 3000000000/1390 ≈ 2158273 which corresponds to 1390 nanoseconds per WS2812 bit.
+
+#### The *main* function
+---->
 
 The *main* function contains whole logic of our clock. The *rgb* variable is set to the color order used by WS2812 controller. This code works also with WS2811 controllers -- the only necessary change is set the color order to RGB. To tell the truth, the baudrate should also be changed but in practice the WS2811 works also with WS2812 timing.
 
-The *strip* slice acts as a framebuffer.
-
-As you can see, we use the *rtos.Nanosec* function instead of *time.New* to obtain the current time. This saves much of Flash but also reduces our clock to antique device that has no idea about days, months and years and worst of all it doesn't handle daylight saving changes.
+We use the *rtos.Nanosec* function instead of *time.New* to obtain the current time. This saves much of Flash but also reduces our clock to antique device that has no idea about days, months and years and worst of all it doesn't handle daylight saving changes.
 
 Our ring has 24 LEDs, so the second hand can be presented with an accuracy of 2.5 s. To don't sacrifice this accuracy and get smooth operation we use half-second as base interval.
 
 The red, green and blue colors are used respectively for hour, minute and second hands. This allows us to use simple *or* operation for color blending. There is a *Color.Blend* method that can blend arbitrary colors but we are low of Flash so we prefer simplest possible solution.
 
-The `strip.Clear()` clears the whole framebuffer to the black color. Next we set the color of three selected pixels to display three clock hands. The `tts.Write(strip.Bytes())` sends the content of the framebuffer to the ring.
+The *strip* slice acts as a framebuffer. The `strip.Clear()` clears the whole framebuffer to the black color. Next we set the color of three selected pixels to display three clock hands. The `tts.Write(strip.Bytes())` sends the content of the framebuffer to the ring.
 
 Then we have the code that reads the state of PA4 pin to adjust the clock. There is an acceleration when the "button" is held down for some time.
 
+### Interrupts.
+
 The program is ened with the code that handles interrupts, the same as in the [UART example]({{site.baseur}}/2018/04/14/go_on_very_small_hardware2.html#uart).
 
+{::nomarkdown}
+<video width=576 height=324 controls preload=auto>
+	<source src='{{site.baseur}}/videos/rgb-clock.mp4' type='video/mp4'>
+	Sorry, your browser doesn't support embedded videos.
+</video>
+{:/}
