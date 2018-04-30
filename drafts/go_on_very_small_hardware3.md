@@ -170,18 +170,20 @@ $ arm-none-eabi-size cortexm0.elf
 $ openocd -d0 -f interface/stlink.cfg -f target/stm32f0x.cfg -c 'init; program cortexm0.elf; reset run; exit'
 ```
 
-I've skipped the openocd output. The video bellow shows how our program works:
+I've skipped the openocd output. The video bellow shows how this program works:
 
 {::nomarkdown}
+<div class='post-content e-content'>
 <video width=576 height=324 controls preload=auto>
 	<source src='{{site.baseur}}/videos/rgb-spinner.mp4' type='video/mp4'>
 	Sorry, your browser doesn't support embedded videos.
 </video>
+</div>
 {:/}
 
-## Let's do something useful
+## Let's do something useful...
 
-At the beginning of the [first part]({{site.baseur}}/2018/03/30/go_on_very_small_hardware.html) I've asked: "How low we can Go and still do something useful?". Our MCU  is actually a very low-end device (8-bitters will of course offend me) but we havn't done anything useful so far.
+At the beginning of the [first part]({{site.baseur}}/2018/03/30/go_on_very_small_hardware.html) I've asked: "How low we can Go and still do something useful?". Our MCU  is actually a very low-end device (8-bitters will offend me) but we haven't done anything useful so far.
 
 *Let's make a Clock!*
 
@@ -410,8 +412,10 @@ Then we have the code that reads the state of PA4 pin to adjust the clock. There
 
 
 {::nomarkdown}
+<div class='post-content e-content'>
 <video width=576 height=324 controls preload=auto>
 	<source src='{{site.baseur}}/videos/rgb-clock.mp4' type='video/mp4'>
 	Sorry, your browser doesn't support embedded videos.
 </video>
+</div>
 {:/}
