@@ -33,17 +33,17 @@ Let's connect this LED ring:
 
 ![WS2812B]({{site.baseur}}/images/led/rgbring.jpg)
 
-to our STM32F030 board. It has 24 individually addressable RGB LEDs (WS2812B) and exposes four terminals: GND, 5V, DI and DO. You can chain more rings or other WS2812 based things by connecting DI (data in) terminal to the DO (data out) terminal of previous one.
+to our STM32F030 board. It has 24 individually addressable RGB LEDs (WS2812B) and exposes four terminals: GND, 5V, DI and DO. You can chain more rings or other WS2812 based things by connecting DI (data in) terminal to the DO (data out) terminal of the previous one.
 
-We will use UART based driver so the DI should be connected to the TXD pin on the UART header. The WS2812B LEDs require a power supply with at least 3.5 V and can consume quite a lot of current, so during programming/debuggin it's best to connect the GND and 5V terminals on the ring directly to the GND and 5V pins available on ST-LINK programmer:
+We will use the UART based driver so the DI should be connected to the TXD pin on the UART header. The WS2812B LEDs require a power supply with at least 3.5 V and can consume quite a lot of current, so during programming/debuggin it's best to connect the GND and 5V terminals on the ring directly to the GND and 5V pins available on ST-LINK programmer:
 
 ![WS2812B]({{site.baseur}}/images/led/ring-stlink-f030.jpg)
 
-Our STM32F030F4P6 MCU and whole STM32F0, STM32F7, STM32L4 families have one important thing that the STM32F1, STM32F4, STM32L1 MCUs don't have: it allows to invert UART signals and therefore we can connect this ring directly to the UART TXD pin. If you don't known that we need such inversion you probably didn't read the [article](https://translate.google.pl/translate?sl=pl&tl=en&u=http://mikrokontrolery.blogspot.com/2011/03/Diody-WS2812B-sterowanie-XMega-cz-2.html) I mentioned above.
+Our STM32F030F4P6 MCU and whole STM32 F0, F3, F7, L4 families have one important thing that the F1, F4, L1 MCUs don't have: it allows to invert the UART signals and therefore we can connect the ring directly to the UART TXD pin. If you don't known that we need such inversion you probably didn't read the [article](https://translate.google.pl/translate?sl=pl&tl=en&u=http://mikrokontrolery.blogspot.com/2011/03/Diody-WS2812B-sterowanie-XMega-cz-2.html) I mentioned above.
 
-So you can't use popular [Blue Pill](https://jeelabs.org/article/1649a/) or [STM32F4-DISCOVERY](http://www.st.com/en/evaluation-tools/stm32f4discovery.html) this way. Use their SPI peripheral or an external inverter. See the [Christmas Tree Lights](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/minidev/treelights) project as example of UART+inverter or [WS2811 example](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/nucleo-f411re/ws2811) for NUCLEO-F411RE that uses SPI.
+So you can't use the popular [Blue Pill](https://jeelabs.org/article/1649a/) or the [STM32F4-DISCOVERY](http://www.st.com/en/evaluation-tools/stm32f4discovery.html) this way. Use their SPI peripheral or an external inverter. See the [Christmas Tree Lights](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/minidev/treelights) project as example of UART+inverter or [WS2811 example](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/nucleo-f411re/ws2811) for NUCLEO-F411RE that uses SPI.
 
-By the way, all DISCOVERY boards have one more problem: they work with VDD = 3V but WS281x requires *supply voltage* * 0.7 for DI high. This is 3.5V in case of 5V supply and 3.3V in case of 4.7V you can find on 5V pin of the DISCOVERY. As you can see, even in our case the first LED works out of spec because it's powered 5V and we have VDD = 3.3V.
+By the way, probably most of DISCOVERY boards have one more problem: they work with VDD = 3V instead of 3.3V. The WS281x requires *supply voltage* * 0.7 for DI high. This is 3.5V in case of 5V supply and 3.3V in case of 4.7V you can find on the 5V pins of the DISCOVERY. As you can see, even in our case the first LED works 0.2V below spec. In case of DISCOVERY it will work 0.3V bellow spec if powered 4.7V and 0.5V bellow spec if powered 5V.
 
 Let's finish this lengthy introduction and go to the code:
 
@@ -95,9 +95,8 @@ func main() {
 	var rnd rand.XorShift64
 	rnd.Seed(1)
 	rgb := wsuart.GRB
-	strip := make(wsuart.Strip, 24)
-	strip.Clear()
-	black := rgb.Pixel(led.Color(0))
+	strip := wsuart.Make(24)
+	black := rgb.Pixel(0)
 	for {
 		c := led.Color(rnd.Uint32()).Scale(127)
 		pixel := rgb.Pixel(c)
@@ -131,7 +130,7 @@ var ISRs = [...]func(){
 
 #### The *import* section
 
-The new things in the *import* section compared to the previous examples is the *rand/math* package and *led* package with its *led/ws281x* subtree. Currently the *led* package itself contains only definition of *Color* type.
+The new things in the *import* section compared to the previous examples are the *rand/math* package and *led* package with its *led/ws281x* subtree. The *led* package itself contains definition of *Color* type. The *led/ws281x/wsuart* defines the *ColorOrder*, *Pixel* and *Strip* types.
 
 I was wondering about using the *Color* or *RGBA* type from *image/color* and about defining the *Strip* in the way that it will implement *image.Image* interface but because of using of [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction) and big overhead of *image/draw* package I ended with simple:
 
@@ -140,21 +139,26 @@ type Color uint32
 type Strip []Pixel
 ```
 
-with a few useful methods.
+with a few useful methods. However, this can change in the future.
 
 #### The *init* function
 
-There aren't so much novelties in the *init* function. The UART baudrate was changed from 115200 to 3000000000/1390 ≈ 2158273 which corresponds to 1390 nanoseconds per WS2812 bit. The TXINV bit in CR2 register is set to enable inversion of TXD signal.
+There aren't so much novelties in the *init* function. The UART baudrate was changed from 115200 to 3000000000/1390 ≈ 2158273 which corresponds to 1390 nanoseconds per WS2812 bit. The *TxInv* bit in CR2 register is set to enable inversion of TXD signal.
 
 #### The *main* function
 
 The *XorShift64* pseudorandom number generator is used to generate random colors. The [XORSHIFT](https://en.wikipedia.org/wiki/Xorshift) is currently the only algorithm implemented by *math/rand* package. You have to explicitly initialize it using its *Seed* method with nonzero argument.
 
-The *rgb* variable is of type *wsuart.ColorOrder* and is set to the GRB color order required by WS2812 LEDs (the WS2811 uses the RGB order). It is then used to encode colors to pixels.
+The *rgb* variable is of type *wsuart.ColorOrder* and is set to the GRB color order used by WS2812 (WS2811 uses the RGB order). It is then used to translate colors to pixels.
 
-Newly created *Strip* is uninitialized. You need to use its *Clear* method to initialize it to black color. The `strip.Clear()` is faster than `strip.Fill(black)`. 
+The `wsuart.Make(24)` creates initialized strip of 24 pixels. It is equivalent of:
 
-The rest of the code uses random color to draw something similar to "Please Wait..." spinner.
+```go
+strip := make(wsuart.Strip, 24)
+strip.Clear()
+```
+
+The rest of the code uses random colors to draw something similar to "Please Wait..." spinner.
 
 #### Interrupts.
 
@@ -183,7 +187,7 @@ I've skipped the openocd output. The video bellow shows how this program works:
 
 ## Let's do something useful...
 
-At the beginning of the [first part]({{site.baseur}}/2018/03/30/go_on_very_small_hardware.html) I've asked: "How low we can Go and still do something useful?". Our MCU  is actually a very low-end device (8-bitters will offend me) but we haven't done anything useful so far.
+At the beginning of the [first part]({{site.baseur}}/2018/03/30/go_on_very_small_hardware.html) I've asked: "How low we can Go and still do something useful?". Our MCU is actually a low-end device (8-bitters will probably disagree with me) but we haven't done anything useful so far.
 
 *Let's make a Clock!*
 
@@ -195,7 +199,7 @@ Remove *math/rand* package and add *stm32/hal/exti* package.
 
 #### Global variables
 
-Add two new variables: *btn* and *btenv*:
+Add two new variables: *btn* and *btnev*:
 
 ```go
 var (
@@ -222,70 +226,29 @@ Add this code to the *init* function:
 	rtos.IRQ(irq.EXTI4_15).Enable()
 ```
 
+#### The *main* function
 
-
-
+Define new *btnWait* auxiliary function:
 
 ```go
-package main
-
-import (
-	"delay"
-	"rtos"
-
-	"led"
-	"led/ws281x/wsuart"
-
-	"stm32/hal/dma"
-	"stm32/hal/exti"
-	"stm32/hal/gpio"
-	"stm32/hal/irq"
-	"stm32/hal/system"
-	"stm32/hal/system/timer/systick"
-	"stm32/hal/usart"
-)
-
-var (
-	tts   *usart.Driver
-	btn   gpio.Pin
-	btnev rtos.EventFlag
-)
-
-func init() {
-	system.SetupPLL(8, 1, 48/8)
-	systick.Setup(2e6)
-
-	gpio.A.EnableClock(true)
-	btn = gpio.A.Pin(4)
-	tx := gpio.A.Pin(9)
-
-	btn.Setup(&gpio.Config{Mode: gpio.In, Pull: gpio.PullUp})
-	ei := exti.Lines(btn.Mask())
-	ei.Connect(btn.Port())
-	ei.EnableFallTrig()
-	ei.EnableRisiTrig()
-	ei.EnableIRQ()
-	rtos.IRQ(irq.EXTI4_15).Enable()
-
-	tx.Setup(&gpio.Config{Mode: gpio.Alt})
-	tx.SetAltFunc(gpio.USART1_AF1)
-	d := dma.DMA1
-	d.EnableClock(true)
-
-	tts = usart.NewDriver(usart.USART1, d.Channel(2, 0), nil, nil)
-	tts.Periph().EnableClock(true)
-	tts.Periph().SetBaudRate(3000000000 / 1390)
-	tts.Periph().SetConf2(usart.TxInv)
-	tts.Periph().Enable()
-	tts.EnableTx()
-	rtos.IRQ(irq.USART1).Enable()
-	rtos.IRQ(irq.DMA1_Channel2_3).Enable()
+func btnWait(state int, deadline int64) bool {
+	for btn.Load() != state {
+		if !btnev.Wait(1, deadline) {
+			return false // timeout
+		}
+		btnev.Reset(0)
+	}
+	delay.Millisec(50) // debouncing
+	return true
 }
+```
 
+and replace *main* with this code:
+
+```go
 func main() {
 	rgb := wsuart.GRB
-	strip := make(wsuart.Strip, 24)
-	strip.Clear()
+	strip := wsuart.Make(24)
 	ds := 4 * 60 / len(strip) // Interval between LEDs (quarter-seconds).
 	adjust := 0
 	adjspeed := ds
@@ -341,18 +304,13 @@ func main() {
 		}
 	}
 }
+```
 
-func btnWait(state int, deadline int64) bool {
-	for btn.Load() != state {
-		if !btnev.Wait(1, deadline) {
-			return false // timeout
-		}
-		btnev.Reset(0)
-	}
-	delay.Millisec(50) // debouncing
-	return true
-}
+#### Interrupts.
 
+Define new interrupt handler:
+
+```go
 func exti4_15ISR() {
 	pending := exti.Pending() & 0xFFF0
 	pending.ClearPending()
@@ -360,26 +318,11 @@ func exti4_15ISR() {
 		btnev.Signal(1)
 	}
 }
-
-func ttsISR() {
-	tts.ISR()
-}
-
-func ttsDMAISR() {
-	tts.TxDMAISR()
-}
-
-//c:__attribute__((section(".ISRs")))
-var ISRs = [...]func(){
-	irq.USART1:          ttsISR,
-	irq.DMA1_Channel2_3: ttsDMAISR,
-	irq.EXTI4_15:        exti4_15ISR,
-}
-
 ```
-#### The *main* function
 
+and add `irq.EXTI4_15: exti4_15ISR` entry to the *ISRs* array.
 
+----->
  
 #### The *init* function
   
