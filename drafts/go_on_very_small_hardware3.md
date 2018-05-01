@@ -27,21 +27,23 @@ If you have to control only one or two strips, use the available SPI or UART per
 
 The best explanation of how the UART protocol fits into WS281x protocol I found on [this site](http://mikrokontrolery.blogspot.com/2011/03/Diody-WS2812B-sterowanie-XMega-cz-2.html). If you don't know Polish, here is the [English translation](https://translate.google.pl/translate?sl=pl&tl=en&u=http://mikrokontrolery.blogspot.com/2011/03/Diody-WS2812B-sterowanie-XMega-cz-2.html).
 
+The WS281x based LEDs are still the most popular but there are also SPI controlled LEDs on the market: [APA102](http://www.shiji-led.com/Product/view/id/1129.html), [SK9822](http://www.normandled.com/index.php/Product/view/id/800.html). Two interesting articles about them: [1](https://cpldcpu.wordpress.com/2014/11/30/understanding-the-apa102-superled/), [2](https://cpldcpu.wordpress.com/2016/12/13/sk9822-a-clone-of-the-apa102/).
+
 ## LED ring
 
-Let's connect this LED ring: 
+There are many WS2812 based rings on the marker. I have this one:
 
 ![WS2812B]({{site.baseur}}/images/led/rgbring.jpg)
 
-to our STM32F030 board. It has 24 individually addressable RGB LEDs (WS2812B) and exposes four terminals: GND, 5V, DI and DO. You can chain more rings or other WS2812 based things by connecting DI (data in) terminal to the DO (data out) terminal of the previous one.
+It has 24 individually addressable RGB LEDs (WS2812B) and exposes four terminals: GND, 5V, DI and DO. You can chain more rings or other WS2812 based things by connecting DI (data in) terminal to the DO (data out) terminal of the previous one.
 
-We will use the UART based driver so the DI should be connected to the TXD pin on the UART header. The WS2812B LEDs require a power supply with at least 3.5 V and can consume quite a lot of current, so during programming/debuggin it's best to connect the GND and 5V terminals on the ring directly to the GND and 5V pins available on ST-LINK programmer:
+Let's connect this ring to our STM32F030 board. We will use the UART based driver so the DI should be connected to the TXD pin on the UART header. The WS2812B LED requires a power supply with at least 3.5 V. 24 LEDs can consume quite a lot of current, so during the programming/debuggin it's best to connect the GND and 5V terminals on the ring directly to the GND and 5V pins available on ST-LINK programmer:
 
 ![WS2812B]({{site.baseur}}/images/led/ring-stlink-f030.jpg)
 
-Our STM32F030F4P6 MCU and whole STM32 F0, F3, F7, L4 families have one important thing that the F1, F4, L1 MCUs don't have: it allows to invert the UART signals and therefore we can connect the ring directly to the UART TXD pin. If you don't known that we need such inversion you probably didn't read the [article](https://translate.google.pl/translate?sl=pl&tl=en&u=http://mikrokontrolery.blogspot.com/2011/03/Diody-WS2812B-sterowanie-XMega-cz-2.html) I mentioned above.
+Our STM32F030F4P6 MCU and the whole STM32 F0, F3, F7, L4 families have one important thing that the F1, F4, L1 MCUs don't have: it allows to invert the UART signals and therefore we can connect the ring directly to the UART TXD pin. If you don't known that we need such inversion you probably didn't read the [article](https://translate.google.pl/translate?sl=pl&tl=en&u=http://mikrokontrolery.blogspot.com/2011/03/Diody-WS2812B-sterowanie-XMega-cz-2.html) I mentioned above.
 
-So you can't use the popular [Blue Pill](https://jeelabs.org/article/1649a/) or the [STM32F4-DISCOVERY](http://www.st.com/en/evaluation-tools/stm32f4discovery.html) this way. Use their SPI peripheral or an external inverter. See the [Christmas Tree Lights](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/minidev/treelights) project as example of UART+inverter or [WS2811 example](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/nucleo-f411re/ws2811) for NUCLEO-F411RE that uses SPI.
+So you can't use the popular [Blue Pill](https://jeelabs.org/article/1649a/) or the [STM32F4-DISCOVERY](http://www.st.com/en/evaluation-tools/stm32f4discovery.html) this way. Use their SPI peripheral or an external inverter. See the [Christmas Tree Lights](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/minidev/treelights) project as example of UART+inverter or [WS2812 example](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/nucleo-f411re/ws2812) for NUCLEO-F411RE that uses SPI.
 
 By the way, probably most of DISCOVERY boards have one more problem: they work with VDD = 3V instead of 3.3V. The WS281x requires *supply voltage* * 0.7 for DI high. This is 3.5V in case of 5V supply and 3.3V in case of 4.7V you can find on the 5V pins of the DISCOVERY. As you can see, even in our case the first LED works 0.2V below spec. In case of DISCOVERY it will work 0.3V bellow spec if powered 4.7V and 0.5V bellow spec if powered 5V.
 
@@ -143,7 +145,7 @@ with a few useful methods. However, this can change in the future.
 
 #### The *init* function
 
-There aren't so much novelties in the *init* function. The UART baudrate was changed from 115200 to 3000000000/1390 ≈ 2158273 which corresponds to 1390 nanoseconds per WS2812 bit. The *TxInv* bit in CR2 register is set to enable inversion of TXD signal.
+There aren't so much novelties in the *init* function. The UART baudrate was changed from 115200 to 3000000000/1390 ≈ 2158273 which corresponds to 1390 nanoseconds per WS2812 bit. The *TxInv* bit in CR2 register is set to invert TXD signal.
 
 #### The *main* function
 
@@ -162,7 +164,8 @@ The rest of the code uses random colors to draw something similar to "Please Wai
 
 #### Interrupts.
 
-The program is ened with the code that handles interrupts, the same as in the [UART example]({{site.baseur}}/2018/04/14/go_on_very_small_hardware2.html#uart).
+The program is ened with the code that handles interrupts, the same as in the
+previous [UART example]({{site.baseur}}/2018/04/14/go_on_very_small_hardware2.html#uart).
 
 Let's compile it and run:
 
