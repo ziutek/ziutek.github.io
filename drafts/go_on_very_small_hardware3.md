@@ -27,7 +27,7 @@ If you have to control only one or two strips, use the available SPI or UART per
 
 The best explanation of how the UART protocol fits into WS281x protocol I found on [this site](http://mikrokontrolery.blogspot.com/2011/03/Diody-WS2812B-sterowanie-XMega-cz-2.html). If you don't know Polish, here is the [English translation](https://translate.google.pl/translate?sl=pl&tl=en&u=http://mikrokontrolery.blogspot.com/2011/03/Diody-WS2812B-sterowanie-XMega-cz-2.html).
 
-The WS281x based LEDs are still the most popular but there are also SPI controlled LEDs on the market: [APA102](http://www.shiji-led.com/Product/view/id/1129.html), [SK9822](http://www.normandled.com/index.php/Product/view/id/800.html). Two interesting articles about them: [1](https://cpldcpu.wordpress.com/2014/11/30/understanding-the-apa102-superled/), [2](https://cpldcpu.wordpress.com/2016/12/13/sk9822-a-clone-of-the-apa102/).
+The WS281x based LEDs are still the most popular but there are also SPI controlled LEDs on the market: [APA102](http://neon-world.com/en/product.php), [SK9822](http://www.normandled.com/index.php/Product/view/id/800.html). Three interesting articles about them: [1](https://cpldcpu.wordpress.com/2014/08/27/apa102/), [2](https://cpldcpu.wordpress.com/2014/11/30/understanding-the-apa102-superled/), [3](https://cpldcpu.wordpress.com/2016/12/13/sk9822-a-clone-of-the-apa102/).
 
 ## LED ring
 
@@ -151,7 +151,7 @@ There aren't so much novelties in the *init* function. The UART baudrate was cha
 
 The *XorShift64* pseudorandom number generator is used to generate random colors. The [XORSHIFT](https://en.wikipedia.org/wiki/Xorshift) is currently the only algorithm implemented by *math/rand* package. You have to explicitly initialize it using its *Seed* method with nonzero argument.
 
-The *rgb* variable is of type *wsuart.ColorOrder* and is set to the GRB color order used by WS2812 (WS2811 uses the RGB order). It is then used to translate colors to pixels.
+The *rgb* variable is of type *wsuart.ColorOrder* and is set to the GRB color order used by WS2812 (WS2811 uses RGB order). It is then used to translate colors to pixels.
 
 The `wsuart.Make(24)` creates initialized strip of 24 pixels. It is equivalent of:
 
@@ -161,6 +161,8 @@ strip.Clear()
 ```
 
 The rest of the code uses random colors to draw something similar to "Please Wait..." spinner.
+
+The *strip* slice acts as a framebuffer. The `tts.Write(strip.Bytes())` sends the content of the framebuffer to the ring.
 
 #### Interrupts.
 
@@ -182,7 +184,7 @@ I've skipped the openocd output. The video bellow shows how this program works:
 {::nomarkdown}
 <div class='post-content e-content'>
 <video width=576 height=324 controls preload=auto>
-	<source src='{{site.baseur}}/videos/rgb-spinner.mp4' type='video/mp4'>
+	<source src='{{site.baseur}}/videos/rgbspinner.mp4' type='video/mp4'>
 	Sorry, your browser doesn't support embedded videos.
 </video>
 </div>
@@ -192,17 +194,17 @@ I've skipped the openocd output. The video bellow shows how this program works:
 
 At the beginning of the [first part]({{site.baseur}}/2018/03/30/go_on_very_small_hardware.html) I've asked: "How low we can Go and still do something useful?". Our MCU is actually a low-end device (8-bitters will probably disagree with me) but we haven't done anything useful so far.
 
-*Let's make a Clock!*
+So... Let’s do something useful... *Let's make a Clock!*
 
-There are many examples of clocks built of RGB LEDs on the Internet. Let's make our own using our little board and our LED ring.
+There are many examples of clocks built of RGB LEDs on the Internet. Let's make our own using our little board and RGB ring. We change the previous code as described below.
 
 #### The *import* section
 
-Remove *math/rand* package and add *stm32/hal/exti* package.
+Remove *math/rand* package and add *stm32/hal/exti*.
 
 #### Global variables
 
-Add two new variables: *btn* and *btnev*:
+Add two new global variables: *btn* and *btnev*:
 
 ```go
 var (
@@ -212,26 +214,32 @@ var (
 )
 ```
 
+They will be used to handle a "button" that will be used to set our clock.
+
 #### The *init* function
 
 Add this code to the *init* function:
 
 ```go
-	btn = gpio.A.Pin(4)
+btn = gpio.A.Pin(4)
 
-	btn.Setup(&gpio.Config{Mode: gpio.In, Pull: gpio.PullUp})
-	ei := exti.Lines(btn.Mask())
-	ei.Connect(btn.Port())
-	ei.EnableFallTrig()
-	ei.EnableRisiTrig()
-	ei.EnableIRQ()
+btn.Setup(&gpio.Config{Mode: gpio.In, Pull: gpio.PullUp})
+ei := exti.Lines(btn.Mask())
+ei.Connect(btn.Port())
+ei.EnableFallTrig()
+ei.EnableRisiTrig()
+ei.EnableIRQ()
 
-	rtos.IRQ(irq.EXTI4_15).Enable()
+rtos.IRQ(irq.EXTI4_15).Enable()
 ```
 
-#### The *main* function
+The PA4 pin is configured as input with the internal pull-up resistor enabled. It is connected to the onboard LED but that doesn't hinder anything. More important is that it's located next to the GND pin so we can use any metal object to simulate the button and set the clock. As a bonus we have additional feedback from the onboard LED.
 
-Define new *btnWait* auxiliary function:
+We use the EXTI peripheral to track the PA4 state. It's configured to generate an interrupt on any change.
+
+#### The *btnWait* function
+
+Define new auxiliary function:
 
 ```go
 func btnWait(state int, deadline int64) bool {
@@ -246,7 +254,21 @@ func btnWait(state int, deadline int64) bool {
 }
 ```
 
-and replace *main* with this code:
+It waits for specified *state* on the PA4 pin, but only until the *deadline* occurs. This is slightly improved polling code:
+
+```go
+for btn.Load() != state {
+	if rtos.Nanosec() >= deadline {
+		// timeout
+	}
+}
+```
+
+Our *btnWait* function instead of busy waiting for *state* or *deadline* uses the *btnev* variable of type *rtos.EventFlag* to sleep until something will happen. You can of course use a channel instead of *rtos.EventFlag* but the latter one is much cheaper.
+
+#### The *main* function
+
+We need completly new *main* function:
 
 ```go
 func main() {
@@ -272,7 +294,7 @@ func main() {
 		mc := led.Color(0x005500)
 		sc := led.Color(0x000055)
 
-		// Blend colors if the hands of the clock overlap.
+		// Blend the colors if the hands of the clock overlap.
 		if hi == mi {
 			hc |= mc
 			mc = hc
@@ -286,7 +308,7 @@ func main() {
 			hc = sc
 		}
 
-		// Draw the clock and send to the ring.
+		// Draw the clock and write to the ring.
 		strip.Clear()
 		strip[hi] = rgb.Pixel(hc)
 		strip[mi] = rgb.Pixel(mc)
@@ -309,6 +331,22 @@ func main() {
 }
 ```
 
+We use the *rtos.Nanosec* function instead of *time.New* to obtain the current time. This saves much of Flash but also reduces our clock to antique device that has no idea about days, months and years and worst of all it doesn't handle daylight saving changes.
+
+Our ring has 24 LEDs, so the second hand can be presented with the accuracy of 2.5s. To don't sacrifice this accuracy and get smooth operation we use quarter-second as base interval. Half-second would be enough but quarter-second is more accurate and works also well with 16 and 48 LEDs.
+
+The red, green and blue colors are used respectively for hour, minute and second hands. This allows us to use simple *or* operation for color blending. There is a *Color.Blend* method that can blend arbitrary colors but we are low of Flash so we prefer simplest possible solution.
+
+We redraw the clock only when the second hand moved. The:
+
+```go
+btnWait(0, int64(qs+ds)*25e7)
+```
+
+is waiting for exactly that moment or for the press of the button. 
+
+Every press of the button adjust the clock forward. There is an acceleration when the button is held down for some time.
+
 #### Interrupts.
 
 Define new interrupt handler:
@@ -323,44 +361,39 @@ func exti4_15ISR() {
 }
 ```
 
-and add `irq.EXTI4_15: exti4_15ISR` entry to the *ISRs* array.
+and add `irq.EXTI4_15: exti4_15ISR,` entry to the *ISRs* array.
 
------>
- 
-#### The *init* function
+This handler (or Interrupt Service Routine) handles EXTI4_15 IRQ. The Cortex-M0 CPU suports significantly fewer IRQs than his bigger brothers, so you can often see that one IRQ is shared by multiple interrupt sources. In our case one IRQ is shared by 12 EXTI lines.
+
+The *exti4_15ISR* reads all *pending* bits and selects 12 more significant of them. Next it clears the seleced pending bits in EXTI and starts to handle them. In our case only bit 4 is checked. The `btnev.Signal(1)` causes that the `btnev.Wait(1, deadline)` wakeups and returns *true*.
+
+You can find the complete code on [Github](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/f030-demo-board/ws2812-clock). Let's compile it:
+
+```
+$ egc
+$ arm-none-eabi-size cortexm0.elf 
+   text    data     bss     dec     hex filename
+  15960     240     216   16416    4020 cortexm0.elf
+```
+
+There are only 184 bytes for any iprovements. One more time but this time without any type and field names in typeinfo:
+
+```
+$ cd $HOME/emgo
+$ ./clean.sh
+$ cd $HOME/firstemgo
+$ egc -nf -nt
+$ arm-none-eabi-size cortexm0.elf
+   text    data     bss     dec     hex filename
+  15120     240     216   15576    3cd8 cortexm0.elf
+```
+
+With a kilobyte of free space you can improve something. But let's see how it works:
   
-1. The PA4 pin is configured as input with internal pull-up resistor enabled:
-```go
-btn.Setup(&gpio.Config{Mode: gpio.In, Pull: gpio.PullUp})
-```
-This pin is connected to the onboard LED but that doesn't hinder anything. More important is that it's located next to the GND pin so we can use any metal object to set the clock. As a bonus we have additional feedback from onboard LED.
-
-2. The EXTI peripheral is configured to track PA4 input and generate an interrupt on any change:
-```go
-ei := exti.Lines(btn.Mask())
-ei.Connect(btn.Port())
-ei.EnableFallTrig()
-ei.EnableRisiTrig()
-ei.EnableIRQ()
-```
-
-The *main* function contains whole logic of our clock. The *rgb* variable is set to the color order used by WS2812 controller. This code works also with WS2811 controllers -- the only necessary change is set the color order to RGB. To tell the truth, the baudrate should also be changed but in practice the WS2811 works also with WS2812 timing.
-
-We use the *rtos.Nanosec* function instead of *time.New* to obtain the current time. This saves much of Flash but also reduces our clock to antique device that has no idea about days, months and years and worst of all it doesn't handle daylight saving changes.
-
-Our ring has 24 LEDs, so the second hand can be presented with an accuracy of 2.5 s. To don't sacrifice this accuracy and get smooth operation we use half-second as base interval.
-
-The red, green and blue colors are used respectively for hour, minute and second hands. This allows us to use simple *or* operation for color blending. There is a *Color.Blend* method that can blend arbitrary colors but we are low of Flash so we prefer simplest possible solution.
-
-The *strip* slice acts as a framebuffer. The `strip.Clear()` clears the whole framebuffer to the black color. Next we set the color of three selected pixels to display three clock hands. The `tts.Write(strip.Bytes())` sends the content of the framebuffer to the ring.
-
-Then we have the code that reads the state of PA4 pin to adjust the clock. There is an acceleration when the "button" is held down for some time.
-
-
 {::nomarkdown}
 <div class='post-content e-content'>
 <video width=576 height=324 controls preload=auto>
-	<source src='{{site.baseur}}/videos/rgb-clock.mp4' type='video/mp4'>
+	<source src='{{site.baseur}}/videos/rgbclock.mp4' type='video/mp4'>
 	Sorry, your browser doesn't support embedded videos.
 </video>
 </div>
