@@ -893,4 +893,4 @@ type(*p) = S
 
 Reflection is a crucial part of any easy to use serialization library and serialization ~~algorithms~~ like [JSON](https://en.wikipedia.org/wiki/JSON) gain in importance in the IOT era.
 
-This is where I finish the second part of this article. I think there is a chance for the third part, more entertaining, where we connect to this board various interesting devices. If this board won't carry them, we replace it with something a little bigger.
+This is where I finish the second part of this article. I think there is a chance for the [third part]({{site.baseur}}/2018/05/03/go_on_very_small_hardware3.html), more entertaining, where we connect to this board various interesting devices. If this board won't carry them, we replace it with something a little bigger.

@@ -2,16 +2,15 @@
 layout: post
 title: Go on very small hardware (Part 3)
 tags: mcu go emgo
-permalink: drafts/4
 ---
 
-[![STM32F030F4P6]({{site.baseur}}/images/mcu/f030-demo-board/board.jpg)]({{site.baseur}}/2018/04/14/go_on_very_small_hardware2.html)
+[![STM32F030F4P6]({{site.baseur}}/images/mcu/f030-demo-board/board.jpg)]({{site.baseur}}/2018/05/03/go_on_very_small_hardware3.html)
 
-Most of the examples discussed in the [first]({{site.baseur}}/2018/03/30/go_on_very_small_hardware.html) and [second]({{site.baseur}}/2018/04/14/go_on_very_small_hardware2.html) part of this article are blinking LEDs in one or another way. It may have been interesting at first, but after a while it has become a bit boring. Let's do something more entertaining...
+Most of the examples discussed in the [first]({{site.baseur}}/2018/03/30/go_on_very_small_hardware.html) and [second]({{site.baseur}}/2018/04/14/go_on_very_small_hardware2.html) part of this series are blinking LEDs in one or another way. It may have been interesting at first, but after a while it has become a bit boring. Let's do something more entertaining...
 
 <!--more-->
 
- ...let's light more LEDs!?
+ ...let's light more LEDs!
 
 ## WS281x LEDs
 
@@ -19,7 +18,7 @@ The [WS281x](http://www.world-semi.com/solution/list-4-1.html) RGB LEDs (and the
 
 ![WS2812B]({{site.baseur}}/images/led/ws2812b.jpg)
 
-They can be connected in series and thanks to this, you can control a long LED strip with only single pin of your MCU. Unfortunately, the phisical protocol used by their internal controller doesn't fit straight into any peripheral you can find in a MCU. You have to use bit-banging or use available peripherals in unusual way.
+They can be connected in series and thanks to this fact, you can control a long LED strip with only single pin of your MCU. Unfortunately, the phisical protocol used by their internal controller doesn't fit straight into any peripheral you can find in a MCU. You have to use bit-banging or use available peripherals in unusual way.
 
 Which of the available solutions is the most efficient depends on the number of LED strips controlled at the same time. If you have to drive 4 to 16 strips the most efficient way is to [use timers and DMA](http://www.martinhubacek.cz/arm/improved-stm32-ws2812b-library) (don't overlook the links at the end of Martin's article).
 
@@ -37,15 +36,15 @@ There are many WS2812 based rings on the marker. I have this one:
 
 It has 24 individually addressable RGB LEDs (WS2812B) and exposes four terminals: GND, 5V, DI and DO. You can chain more rings or other WS2812 based things by connecting DI (data in) terminal to the DO (data out) terminal of the previous one.
 
-Let's connect this ring to our STM32F030 board. We will use the UART based driver so the DI should be connected to the TXD pin on the UART header. The WS2812B LED requires a power supply with at least 3.5 V. 24 LEDs can consume quite a lot of current, so during the programming/debuggin it's best to connect the GND and 5V terminals on the ring directly to the GND and 5V pins available on ST-LINK programmer:
+Let's connect this ring to our STM32F030 board. We will use the UART based driver so the DI should be connected to the TXD pin on the UART header. The WS2812B LED requires a power supply with at least 3.5V. 24 LEDs can consume quite a lot of current, so during the programming/debuggin it's best to connect the GND and 5V terminals on the ring directly to the GND and 5V pins available on ST-LINK programmer:
 
 ![WS2812B]({{site.baseur}}/images/led/ring-stlink-f030.jpg)
 
 Our STM32F030F4P6 MCU and the whole STM32 F0, F3, F7, L4 families have one important thing that the F1, F4, L1 MCUs don't have: it allows to invert the UART signals and therefore we can connect the ring directly to the UART TXD pin. If you don't known that we need such inversion you probably didn't read the [article](https://translate.google.pl/translate?sl=pl&tl=en&u=http://mikrokontrolery.blogspot.com/2011/03/Diody-WS2812B-sterowanie-XMega-cz-2.html) I mentioned above.
 
-So you can't use the popular [Blue Pill](https://jeelabs.org/article/1649a/) or the [STM32F4-DISCOVERY](http://www.st.com/en/evaluation-tools/stm32f4discovery.html) this way. Use their SPI peripheral or an external inverter. See the [Christmas Tree Lights](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/minidev/treelights) project as example of UART+inverter or [WS2812 example](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/nucleo-f411re/ws2812) for NUCLEO-F411RE that uses SPI.
+So you can't use the popular [Blue Pill](https://jeelabs.org/article/1649a/) or the [STM32F4-DISCOVERY](http://www.st.com/en/evaluation-tools/stm32f4discovery.html) this way. Use their SPI peripheral or an external inverter. See the [Christmas Tree Lights](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/minidev/treelights) project as an example of UART+inverter or the [WS2812 example](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/nucleo-f411re/ws2812) for NUCLEO-F411RE that uses SPI.
 
-By the way, probably most of DISCOVERY boards have one more problem: they work with VDD = 3V instead of 3.3V. The WS281x requires *supply voltage* * 0.7 for DI high. This is 3.5V in case of 5V supply and 3.3V in case of 4.7V you can find on the 5V pins of the DISCOVERY. As you can see, even in our case the first LED works 0.2V below spec. In case of DISCOVERY it will work 0.3V bellow spec if powered 4.7V and 0.5V bellow spec if powered 5V.
+By the way, probably the most of DISCOVERY boards have one more problem: they work with VDD = 3V instead of 3.3V. The WS281x requires *supply voltage* * 0.7 for DI high. This is 3.5V in case of 5V supply and 3.3V in case of 4.7V you can find on the 5V pins of the DISCOVERY. As you can see, even in our case the first LED works 0.2V below spec. In case of DISCOVERY it will work 0.3V bellow spec if powered 4.7V and 0.5V bellow spec if powered 5V.
 
 Let's finish this lengthy introduction and go to the code:
 
@@ -134,7 +133,7 @@ var ISRs = [...]func(){
 
 The new things in the *import* section compared to the previous examples are the *rand/math* package and *led* package with its *led/ws281x* subtree. The *led* package itself contains definition of *Color* type. The *led/ws281x/wsuart* defines the *ColorOrder*, *Pixel* and *Strip* types.
 
-I was wondering about using the *Color* or *RGBA* type from *image/color* and about defining the *Strip* in the way that it will implement *image.Image* interface but because of using of [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction) and big overhead of *image/draw* package I ended with simple:
+I was wondering about using the *Color* or *RGBA* type from *image/color* and about defining the *Strip* in the way that it will implement *image.Image* interface but because of using a [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction) and the big overhead of *image/draw* package I ended with simple:
 
 ```go
 type Color uint32
@@ -149,9 +148,9 @@ There aren't so much novelties in the *init* function. The UART baudrate was cha
 
 #### The *main* function
 
-The *XorShift64* pseudorandom number generator is used to generate random colors. The [XORSHIFT](https://en.wikipedia.org/wiki/Xorshift) is currently the only algorithm implemented by *math/rand* package. You have to explicitly initialize it using its *Seed* method with nonzero argument.
+The *XorShift64* pseudorandom number generator is used to generate random colors. [XORSHIFT](https://en.wikipedia.org/wiki/Xorshift) is currently the only algorithm implemented by *math/rand* package. You have to explicitly initialize it using its *Seed* method with nonzero argument.
 
-The *rgb* variable is of type *wsuart.ColorOrder* and is set to the GRB color order used by WS2812 (WS2811 uses RGB order). It is then used to translate colors to pixels.
+The *rgb* variable is of type *wsuart.ColorOrder* and is set to the GRB color order used by WS2812 (WS2811 uses RGB order). It's then used to translate colors to pixels.
 
 The `wsuart.Make(24)` creates initialized strip of 24 pixels. It is equivalent of:
 
@@ -214,7 +213,7 @@ var (
 )
 ```
 
-They will be used to handle a "button" that will be used to set our clock.
+They will be used to handle the "button" that will be used to set our clock. Our board has no button except reset, but somehow we can manage without it.
 
 #### The *init* function
 
@@ -254,7 +253,7 @@ func btnWait(state int, deadline int64) bool {
 }
 ```
 
-It waits for specified *state* on the PA4 pin, but only until the *deadline* occurs. This is slightly improved polling code:
+It waits for specified *state* on the "button" pin, but only until the *deadline* occurs. This is slightly improved polling code:
 
 ```go
 for btn.Load() != state {
@@ -264,7 +263,7 @@ for btn.Load() != state {
 }
 ```
 
-Our *btnWait* function instead of busy waiting for *state* or *deadline* uses the *btnev* variable of type *rtos.EventFlag* to sleep until something will happen. You can of course use a channel instead of *rtos.EventFlag* but the latter one is much cheaper.
+Our *btnWait* function, instead of busy waiting for *state* or *deadline*, uses the *btnev* variable of type *rtos.EventFlag* to sleep until something will happen. You can of course use a channel instead of *rtos.EventFlag* but the latter one is much cheaper.
 
 #### The *main* function
 
@@ -335,7 +334,7 @@ We use the *rtos.Nanosec* function instead of *time.New* to obtain the current t
 
 Our ring has 24 LEDs, so the second hand can be presented with the accuracy of 2.5s. To don't sacrifice this accuracy and get smooth operation we use quarter-second as base interval. Half-second would be enough but quarter-second is more accurate and works also well with 16 and 48 LEDs.
 
-The red, green and blue colors are used respectively for hour, minute and second hands. This allows us to use simple *or* operation for color blending. There is a *Color.Blend* method that can blend arbitrary colors but we are low of Flash so we prefer simplest possible solution.
+The red, green and blue colors are used respectively for hour, minute and second hands. This allows us to use simple *or* operation for color blending. We have the *Color.Blend* method that can blend arbitrary colors but we're low of Flash so we prefer simplest possible solution.
 
 We redraw the clock only when the second hand moved. The:
 
@@ -365,7 +364,7 @@ and add `irq.EXTI4_15: exti4_15ISR,` entry to the *ISRs* array.
 
 This handler (or Interrupt Service Routine) handles EXTI4_15 IRQ. The Cortex-M0 CPU suports significantly fewer IRQs than its bigger brothers, so you can often see that one IRQ is shared by multiple interrupt sources. In our case one IRQ is shared by 12 EXTI lines.
 
-The *exti4_15ISR* reads all *pending* bits and selects 12 more significant of them. Next it clears the seleced pending bits in EXTI and starts to handle them. In our case only bit 4 is checked. The `btnev.Signal(1)` causes that the `btnev.Wait(1, deadline)` wakeups and returns *true*.
+The *exti4_15ISR* reads all *pending* bits and selects 12 more significant of them. Next it clears the seleced bits in EXTI and starts to handle them. In our case only bit 4 is checked. The `btnev.Signal(1)` causes that the `btnev.Wait(1, deadline)` wakeups and returns *true*.
 
 You can find the complete code on [Github](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/f030-demo-board/ws2812-clock). Let's compile it:
 
@@ -376,7 +375,7 @@ $ arm-none-eabi-size cortexm0.elf
   15960     240     216   16416    4020 cortexm0.elf
 ```
 
-There are only 184 bytes for any iprovements. Let's reuild everything one more time but this time without any type and field names in typeinfo:
+There are only 184 bytes for any iprovements. Let's rebuild everything one more time but this time without any type and field names in typeinfo:
 
 ```
 $ cd $HOME/emgo
@@ -399,54 +398,4 @@ Now, with a kilobyte of free space you can improve something. Let's see how it w
 
 I don't know how I managed to hit exactly 3:00 !?
 
-## LCD display
-
-There are hundreds of different types of displays targeting the MCU market. From simple text displays based on [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller) compatible controllers to [Nextion](https://nextion.itead.cc/) "intelligent" display with its own MCU and up to 8 MB RAM.
-
-I'll present there my favorite one based on [FT811](http://www.ftdichip.com/Products/ICs/FT81X.html) controller.
-
-In my opinion, there are definitely two designs that stand out in the world of microcontrollers. The first one is the Nordic [nRF5 series](https://www.nordicsemi.com/eng/Products/2.4GHz-RF) of Bluetooth enabled MCUs. The second one is the FTDI EVE series of display controllers (FT80x, FT81x), both worth writing a separate articles.
-
-#### Digression about the nRF5 MCUs
-
-To understand what I'm about to write, you should definitely read the Rob Pike's [article](https://commandcenter.blogspot.com/2012/06/less-is-exponentially-more.html).
-
-Let's take a look at the great STM32 series of MCUs. They have an extremely rich array of peripherals, every with hundred or thousands configuration bits. You can find the right bit for almost your every whim, and if not, then it will definitely appear in the newer family. You can say that in the MCU world the STM32 series is like C++ in the programming language world and the latest STM32 MCUs are the equivalent of the C++14. 
-
-Against the background of STM32 the Nordic nRF5 series can be compared to the Go language.
-
-The nRF5 gives you a set of simple tools (peripherals) and a key concept of events and tasks. To solve a specific problem you can combine these simple peripherals by connecting their events and task. You have to be creative and don't count on the presence of some specific bit in the configuration register.
-
-Additionaly, interrupts, peripherals and its registers are arranged according to the one, general and clear template. For example, you can easily infer the IRQ number of a peripheral from its base address.
-
-#### Shortly about FTDI Embedded Video Engine (EVE)
-
-The EVE provides a drawing interface similar to OpenGL 2D. But the developers of EVE didn't follow the usual path. They found a way to get the maximum effect with the minimum of resources.
-
-If you think about typical GPU based desing you think about the GPU as a specialized processor that executes commands and draws to a large framebuffer. We're just about connecting a relatively big 800x480 display to our MCU. For 32-bit RGBA it requires about 1.5 MB framebuffer. FT811 uses only 6400 bytes for its double-buffered framebuffer (my estimation). How is it possible?
-
-It's posible because the FT811 renders its scene (display list) line by line during the LCD refresh. It probably renders the next line when the previous one is refreshed, so from this I infer that it has two-line framebuffer. 
-
-The display list is double-buffered in RAM of size 2 x 8 kB. The MCU writes basic commands directly to the inactive display list or writes basic and high-level commands to the Graphics Engine (GE) FIFO of size 4 kB. The GE executes higl-level commands like buttons, scroll bars, progress bars, etc. from its FIFO and converts them to the basic commands, written to the inactive display list. When the scene is ready you simply swap buffers.
-
-There is also 1 MB of general purpose RAM where you can store bitmaps, decompress JPEG and PNG images, setup video queues, store audio files, store additional fonts and so on.
-
-As you can see FT811 uses 1050 kB of RAM for a lot of things instead of 1500 kB for only one framebuffer (you need two for double buffering).
-
-The EVE also handles touchscreen. You can assign a tag to any object in display list. The GE will tell you which object is touched by reporting its tag. It also can assists in tracking touches on graphic objects by report angle or distance.
-
-#### The HOTMCU FT811CB-HY50HD display
-
-HAOYU Electronics aka HOTMCU is probably the cheapest source of FT8xx based displays. When I was working on the *display/eve* package I've used two of them: [FT800CB-HY50B](https://www.hotmcu.com/5-graphical-lcd-touchscreen-480x272-spi-ft800-p-124.html?cPath=6_16) and [FT811CB-HY50HD](https://www.hotmcu.com/5-graphical-lcd-capacitive-touch-screen-800x480-spi-ft811-p-301.html). Bellow we will deal with the latter one:
-
-![WS2812B]({{site.baseur}}/images/lcd/ft811cb-hy50hd-front.jpg)
-
-![WS2812B]({{site.baseur}}/images/lcd/ft811cb-hy50hd-back.jpg)
-
-Its TFT panel isn't outstanding, to put it mildly, but good enough for development purposes. Unfortunately, it requires a small modification to work seamlessly with 3.3V logic:
-
-![WS2812B]({{site.baseur}}/images/lcd/ft811cb-mod.jpg)
-
-It has two 74LVC125A that work as level shifters. They probably work well with 5V logic, even with 30 MHz SPI clock, but in case of 3.3V logic they make the screen look damaged. You can avoid these problems without desoldering anything by reducing the SPI speed, unfortunately I don't remember how much.
-
- This modificatin allows also use EVE2 2-bit QSPI mode which doubles the available bandwidth.
+That's all Folks! In the part 4 (ending this series) we'll try to display something on the LCD.
