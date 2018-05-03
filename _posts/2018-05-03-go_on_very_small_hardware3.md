@@ -144,7 +144,7 @@ with a few useful methods. However, this can change in the future.
 
 #### The *init* function
 
-There aren't so much novelties in the *init* function. The UART baudrate was changed from 115200 to 3000000000/1390 ≈ 2158273 which corresponds to 1390 nanoseconds per WS2812 bit. The *TxInv* bit in CR2 register is set to invert TXD signal.
+There aren't so much novelties in the *init* function. The UART baud rate was changed from 115200 to 3000000000/1390 ≈ 2158273 which corresponds to 1390 nanoseconds per WS2812 bit. The *TxInv* bit in CR2 register is set to invert TXD signal.
 
 #### The *main* function
 
@@ -163,7 +163,7 @@ The rest of the code uses random colors to draw something similar to "Please Wai
 
 The *strip* slice acts as a framebuffer. The `tts.Write(strip.Bytes())` sends the content of the framebuffer to the ring.
 
-#### Interrupts.
+#### Interrupts
 
 The program is ened with the code that handles interrupts, the same as in the
 previous [UART example]({{site.baseur}}/2018/04/14/go_on_very_small_hardware2.html#uart).
@@ -346,7 +346,7 @@ is waiting for exactly that moment or for the press of the button.
 
 Every press of the button adjust the clock forward. There is an acceleration when the button is held down for some time.
 
-#### Interrupts.
+#### Interrupts
 
 Define new interrupt handler:
 
@@ -362,9 +362,9 @@ func exti4_15ISR() {
 
 and add `irq.EXTI4_15: exti4_15ISR,` entry to the *ISRs* array.
 
-This handler (or Interrupt Service Routine) handles EXTI4_15 IRQ. The Cortex-M0 CPU suports significantly fewer IRQs than its bigger brothers, so you can often see that one IRQ is shared by multiple interrupt sources. In our case one IRQ is shared by 12 EXTI lines.
+This handler (or Interrupt Service Routine) handles EXTI4_15 IRQ. The Cortex-M0 CPU supports significantly fewer IRQs than its bigger brothers, so you can often see that one IRQ is shared by multiple interrupt sources. In our case one IRQ is shared by 12 EXTI lines.
 
-The *exti4_15ISR* reads all *pending* bits and selects 12 more significant of them. Next it clears the seleced bits in EXTI and starts to handle them. In our case only bit 4 is checked. The `btnev.Signal(1)` causes that the `btnev.Wait(1, deadline)` wakeups and returns *true*.
+The *exti4_15ISR* reads all *pending* bits and selects 12 more significant of them. Next it clears the seleced bits in EXTI and starts to handle them. In our case only bit 4 is checked. The `btnev.Signal(1)` causes that the `btnev.Wait(1, deadline)` wakes up and returns *true*.
 
 You can find the complete code on [Github](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/f030-demo-board/ws2812-clock). Let's compile it:
 
@@ -398,4 +398,4 @@ Now, with a kilobyte of free space you can improve something. Let's see how it w
 
 I don't know how I managed to hit exactly 3:00 !?
 
-That's all Folks! In the part 4 (ending this series) we'll try to display something on the LCD.
+That's all Folks! In the part 4 (ending this series) we'll try to display something on a LCD.
