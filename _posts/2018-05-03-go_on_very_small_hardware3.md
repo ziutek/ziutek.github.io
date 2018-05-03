@@ -44,7 +44,7 @@ Our STM32F030F4P6 MCU and the whole STM32 F0, F3, F7, L4 families have one impor
 
 So you can't use the popular [Blue Pill](https://jeelabs.org/article/1649a/) or the [STM32F4-DISCOVERY](http://www.st.com/en/evaluation-tools/stm32f4discovery.html) this way. Use their SPI peripheral or an external inverter. See the [Christmas Tree Lights](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/minidev/treelights) project as an example of UART+inverter or the [WS2812 example](https://github.com/ziutek/emgo/tree/master/egpath/src/stm32/examples/nucleo-f411re/ws2812) for NUCLEO-F411RE that uses SPI.
 
-By the way, probably the most of DISCOVERY boards have one more problem: they work with VDD = 3V instead of 3.3V. The WS281x requires *supply voltage* * 0.7 for DI high. This is 3.5V in case of 5V supply and 3.3V in case of 4.7V you can find on the 5V pins of the DISCOVERY. As you can see, even in our case the first LED works 0.2V below spec. In case of DISCOVERY it will work 0.3V bellow spec if powered 4.7V and 0.5V bellow spec if powered 5V.
+By the way, probably the most of DISCOVERY boards have one more problem: they work with VDD = 3V instead of 3.3V. The WS281x requires at least the *supply voltage* * 0.7 for DI high. This is 3.5V in case of 5V supply and 3.3V in case of 4.7V you can find on the 5V pins of the DISCOVERY. As you can see, even in our case the first LED works 0.2V below spec. In case of DISCOVERY it will work 0.3V bellow spec if powered 4.7V and 0.5V bellow spec if powered 5V.
 
 Let's finish this lengthy introduction and go to the code:
 
@@ -199,7 +199,7 @@ There are many examples of clocks built of RGB LEDs on the Internet. Let's make 
 
 #### The *import* section
 
-Remove *math/rand* package and add *stm32/hal/exti*.
+Remove the *math/rand* package and add *stm32/hal/exti*.
 
 #### Global variables
 
@@ -232,13 +232,13 @@ ei.EnableIRQ()
 rtos.IRQ(irq.EXTI4_15).Enable()
 ```
 
-The PA4 pin is configured as input with the internal pull-up resistor enabled. It is connected to the onboard LED but that doesn't hinder anything. More important is that it's located next to the GND pin so we can use any metal object to simulate the button and set the clock. As a bonus we have additional feedback from the onboard LED.
+The PA4 pin is configured as input with the internal pull-up resistor enabled. It's connected to the onboard LED but that doesn't hinder anything. More important is that it's located next to the GND pin so we can use any metal object to simulate the button and set the clock. As a bonus we have additional feedback from the onboard LED.
 
 We use the EXTI peripheral to track the PA4 state. It's configured to generate an interrupt on any change.
 
 #### The *btnWait* function
 
-Define new auxiliary function:
+Define a new auxiliary function:
 
 ```go
 func btnWait(state int, deadline int64) bool {
@@ -330,11 +330,11 @@ func main() {
 }
 ```
 
-We use the *rtos.Nanosec* function instead of *time.New* to obtain the current time. This saves much of Flash but also reduces our clock to antique device that has no idea about days, months and years and worst of all it doesn't handle daylight saving changes.
+We use the *rtos.Nanosec* function instead of *time.Now* to obtain the current time. This saves much of Flash but also reduces our clock to antique device that has no idea about days, months and years and worst of all it doesn't handle daylight saving changes.
 
 Our ring has 24 LEDs, so the second hand can be presented with the accuracy of 2.5s. To don't sacrifice this accuracy and get smooth operation we use quarter-second as base interval. Half-second would be enough but quarter-second is more accurate and works also well with 16 and 48 LEDs.
 
-The red, green and blue colors are used respectively for hour, minute and second hands. This allows us to use simple *or* operation for color blending. We have the *Color.Blend* method that can blend arbitrary colors but we're low of Flash so we prefer simplest possible solution.
+The red, green and blue colors are used respectively for hour, minute and second hands. This allows us to use simple *logical or* operation for color blending. We have the *Color.Blend* method that can blend arbitrary colors but we're low of Flash so we prefer simplest possible solution.
 
 We redraw the clock only when the second hand moved. The:
 
