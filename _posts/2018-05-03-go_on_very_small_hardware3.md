@@ -253,7 +253,7 @@ func btnWait(state int, deadline int64) bool {
 }
 ```
 
-It waits for specified *state* on the "button" pin, but only until the *deadline* occurs. This is slightly improved polling code:
+It waits for the specified *state* on the "button" pin, but only until the *deadline* occurs. This is slightly improved polling code:
 
 ```go
 for btn.Load() != state {
