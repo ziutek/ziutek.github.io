@@ -78,6 +78,7 @@ func init() {
 
 	tx.Setup(&gpio.Config{Mode: gpio.Alt})
 	tx.SetAltFunc(gpio.USART1_AF1)
+
 	d := dma.DMA1
 	d.EnableClock(true)
 
