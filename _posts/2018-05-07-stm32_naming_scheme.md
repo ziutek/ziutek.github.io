@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Decipher the STM32 naming
-tags: mcu go emgo
+tags: mcu stm32
 ---
 
 [![STM32F030F4P6]({{site.baseur}}/images/mcu/stm32f030f4p6.jpg)]({{site.baseur}}2018/05/07/stm32_naming_scheme.html)
