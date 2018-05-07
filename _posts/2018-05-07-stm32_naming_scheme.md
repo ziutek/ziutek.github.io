@@ -15,7 +15,7 @@ F     | Type              | F: mainstream, L: low power, H: high performance, W:
 0     | Core              | 0: M0, 1: M3, 2: M3, 3: M4, 4: M4, 7: M7
 30    | Line              | speed, peripherals, silicon process, ...
 F     | Number of pins    | F: 20, G: 28, K: 32, T: 36, S: 44, C: 48, R: 64,66, V: 100, Z: 144, I: 176
-4     | Flash KiB         | 4: 16, 6: 32, 8: 64, B: 128, C: 256, D: 384, E: 512, F: 768, G: 1024, H: 1536, I: 2048
+4     | Flash size        | 4: 16, 6: 32, 8: 64, B: 128, C: 256, D: 384, E: 512, F: 768, G: 1024, H: 1536, I: 2048 KiB
 P     | Package           | P: TSOOP, H: BGA, U: VFQFPN, T: LQFP, Y: WLCSP
 6     | Temperature range | 6: -40..85°C, 7: -40..105°C
 
