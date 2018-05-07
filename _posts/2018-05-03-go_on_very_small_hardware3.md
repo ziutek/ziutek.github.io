@@ -227,7 +227,7 @@ btn.Setup(&gpio.Config{Mode: gpio.In, Pull: gpio.PullUp})
 ei := exti.Lines(btn.Mask())
 ei.Connect(btn.Port())
 ei.EnableFallTrig()
-ei.EnableRisiTrig()
+ei.EnableRiseTrig()
 ei.EnableIRQ()
 
 rtos.IRQ(irq.EXTI4_15).Enable()
