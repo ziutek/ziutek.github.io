@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Decipher the STM32 naming
+title: Decipher the naming of STM32 MCUs
 tags: mcu stm32
 ---
 
