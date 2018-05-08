@@ -29,6 +29,7 @@ F1 | Mainsterm MCU with 32-bit ARM Cortex-M3 core
 03 | 72 MHz CPU, up to 20 KiB RAM, 3x USART, 2x SPI/I²S, 2x I²C, 1x USB, 1x CAN, 2x ADC, 7 timers, 7-channel DMA
 C  | 48 pins
 8  | 64 KiB of Flash
+T  | LQFP package
 6  | Temperature range from -40 to 85 °C
 
 
