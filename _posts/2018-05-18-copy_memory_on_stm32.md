@@ -13,15 +13,15 @@ Interesting results of different ways of copying memory:
 [STM32F411RE](https://github.com/ziutek/emgo/blob/master/egpath/src/stm32/examples/nucleo-f411re/dma/main.go) 96 MHz
 
 ```
-Initialize src                          27308 kB/s
-for i := range src { dst[i] = src[i] }  17284 kB/s
-copy(dst, src)                          38147 kB/s
-DMA                                    118696 kB/s
-DMA FT1                                119795 kB/s
-DMA FT2                                119766 kB/s
-DMA FT3                                118954 kB/s
-DMA FT4                                 96094 kB/s
-DMA FT4 PB4 MB4                        120205 kB/s
+Initialize src                          27310 kB/s
+for i := range src { dst[i] = src[i] }  17285 kB/s
+copy(dst, src)                          38144 kB/s
+DMA                                    118782 kB/s
+DMA FT1                                119912 kB/s
+DMA FT2                                119883 kB/s
+DMA FT3                                119070 kB/s
+DMA FT4                                 96150 kB/s
+DMA FT4 PB4 MB4                        120294 kB/s
 ```
 
 [STM32F407VG](https://github.com/ziutek/emgo/blob/master/egpath/src/stm32/examples/f4-discovery/dma/main.go) 168 MHz
@@ -29,13 +29,13 @@ DMA FT4 PB4 MB4                        120205 kB/s
 ```
 Initialize src                          47776 kB/s
 for i := range src { dst[i] = src[i] }  29719 kB/s
-copy(dst, src)                          63796 kB/s
-DMA                                    159643 kB/s
-DMA FT1                                159851 kB/s
-DMA FT2                                159200 kB/s
-DMA FT3                                159407 kB/s
-DMA FT4                                137121 kB/s
-DMA FT4 PB4 MB4                        184149 kB/s
+copy(dst, src)                          63791 kB/s
+DMA                                    159762 kB/s
+DMA FT1                                159940 kB/s
+DMA FT2                                159259 kB/s
+DMA FT3                                159525 kB/s
+DMA FT4                                137209 kB/s
+DMA FT4 PB4 MB4                        184307 kB/s
 ```
 
 The *src* and *dst* are both of type *[]uint32*.
