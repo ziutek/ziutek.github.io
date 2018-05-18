@@ -72,4 +72,4 @@ The best performance is achieved using AHB burst mode. There is a warning about 
 
 >> The burst configuration has to be selected in order to respect the AHB protocol, where bursts must not cross the 1 KB address boundary because the minimum address space that can be allocated to a single slave is 1 KB. This means that the 1 KB address boundary should not be crossed by a burst block transfer, otherwise an AHB error would be generated, that is not reported by the DMA registers.
 
-I don't quite understand this warning but despite the deliberate attempts to generate this error it doesn't occur in case memory to memory transfer.
+I don't quite understand this warning but despite the deliberate attempts to generate this error it doesn't occur in case of memory to memory transfer.
